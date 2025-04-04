@@ -1,742 +1,915 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Experiment Tree Visualization</title>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            box-sizing: border-box;
-        }
-        
-        .container {
-            display: flex;
-            flex: 1;
-            margin-top: 20px;
-            min-height: 0; /* Required for Firefox */
-        }
-        
-        #tree-container {
-            flex: 1;
-            border: 1px solid #ccc;
-            padding: 10px;
-            overflow: auto;
-            min-height: 0; /* Required for Firefox */
-        }
-        
-        #details-panel {
-            flex: 1;
-            border: 1px solid #ccc;
-            padding: 20px;
-            margin-left: 20px;
-            overflow: auto;
-            min-height: 0; /* Required for Firefox */
-            width: 400px; /* Set fixed width for details panel */
-        }
-        
-        .node circle {
-            fill: steelblue;
-            stroke: #fff;
-            stroke-width: 1.5px;
-        }
-        
-        .node text {
-            font-size: 10px;
-        }
-        
-        .node.selected circle {
-            fill: #ff5722;
-        }
-        
-        .link {
-            fill: none;
-            stroke: #ccc;
-            stroke-width: 1.5px;
-        }
-        
-        .upload-area {
-            margin-bottom: 20px;
-            padding: 10px;
-            border: 2px dashed #ccc;
-            text-align: center;
-        }
-        
-        .file-list {
-            display: flex;
-            flex-wrap: wrap;
-            margin-top: 10px;
-        }
-        
-        .file-item {
-            background: #f0f0f0;
-            padding: 5px 10px;
-            margin: 5px;
-            border-radius: 3px;
-            font-size: 14px;
-        }
-        
-        h1, h2, h3 {
-            color: #333;
-        }
-        
-        pre {
-            background: #f5f5f5;
-            padding: 10px;
-            overflow: auto;
-            max-height: 200px;
-            border-radius: 4px;
-        }
-        
-        .belief-distribution {
-            margin-top: 10px;
-            margin-bottom: 20px;
-        }
-        
-        .belief-bar {
-            height: 30px;
-            width: 100%;
-            display: flex;
-            margin: 5px 0;
-        }
-        
-        .belief-segment {
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 12px;
-        }
-        
-        .belief-positive {
-            background-color: #4CAF50;
-        }
-        
-        .belief-negative {
-            background-color: #f44336;
-        }
-        
-        .belief-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin: 20px;
-        }
-        .belief-cell {
-            border: 1px solid #ccc;
-            padding: 10px;
-            border-radius: 5px;
-        }
-        .belief-header {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .belief-bar {
-            height: 20px;
-            background-color: #4CAF50;
-            margin: 2px 0;
-        }
-        .belief-negative {
-            background-color: #f44336;
-        }
-        .belief-label {
-            margin-top: 2px;
-            font-size: 12px;
-        }
-        
-        .belief-context {
-            margin-bottom: 15px;
-            padding: 10px;
-            background: #f9f9f9;
-            border-radius: 4px;
-        }
-        
-        .belief-subheader {
-            font-weight: bold;
-            color: #666;
-            margin-bottom: 8px;
-        }
-
-        .node-half {
-            fill: none;
-            stroke: #fff;
-            stroke-width: 1.5px;
-        }
-        
-        .context-selector {
-            margin: 10px 0;
-            padding: 10px;
-            background: #f5f5f5;
-            border-radius: 4px;
-        }
-        
-        .context-selector label {
-            margin-right: 15px;
-            cursor: pointer;
-        }
-
-        .surprise-counter {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #ff5722;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 4px;
-            font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        .upload-container {
-        display: flex;
-        gap: 20px;
-        align-items: stretch;
-        }
-
-        .upload-area {
-            flex: 1;
-            margin-bottom: 20px;
-            padding: 10px;
-            border: 2px dashed #ccc;
-            text-align: center;
-        }
-
-        .sample-data {
-            min-width: 200px;
-            margin-bottom: 20px;
-        }
-
-        #sample-selector {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background-color: white;
-            font-size: 14px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Experiment Tree Visualization</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    /* Global styling */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+      font-size: 16px;
+      overflow-y: auto;
+    }
+    .container {
+      display: flex;
+      width: 100%;
+    }
+    /* Panes */
+    #left-pane, #details-panel {
+      width: 50%;
+      box-sizing: border-box;
+      transition: width 0.3s, display 0.3s;
+    }
+    #left-pane {
+      border: 1px solid #ccc;
+      padding: 10px;
+    }
+    #details-panel {
+      border: 1px solid #ccc;
+      padding: 20px;
+      white-space: normal;
+    }
+    /* Pane headers */
+    #left-pane-header, #details-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    /* Tree container */
+    #tree-container {
+      border: 1px solid #ccc;
+      padding: 10px;
+      overflow: auto;
+      min-height: 400px;
+    }
+    /* Buttons */
+    button.yes {
+      background-color: green;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      margin: 2px;
+      cursor: pointer;
+    }
+    button.no {
+      background-color: red;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      margin: 2px;
+      cursor: pointer;
+    }
+    button.unsure {
+      background-color: orange;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      margin: 2px;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    button.reset {
+      background-color: #757575;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      margin: 10px 2px;
+      cursor: pointer;
+    }
+    button.fullscreen-toggle {
+      padding: 5px 10px;
+      margin: 2px;
+      cursor: pointer;
+    }
+    /* Tree nodes and links (horizontal layout) */
+    .node circle {
+      fill: steelblue;
+      stroke: #fff;
+      stroke-width: 1.5px;
+    }
+    .node text {
+      font-size: 10px;
+    }
+    .node.selected circle {
+      fill: #ff5722;
+    }
+    /* Active cluster highlighting */
+    .node.active-cluster circle {
+      stroke: #FFFF00;
+      stroke-width: 4px;
+    }
+    /* Deactivated nodes */
+    .node.deactivated {
+      opacity: 0.3;
+    }
+    .link {
+      fill: none;
+      stroke: #ccc;
+      stroke-width: 1.5px;
+    }
+    /* Cluster number inside node circle */
+    .node-cluster-label {
+      pointer-events: none;
+      font-size: 8px;
+      fill: black;
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+    /* Upload area */
+    .upload-area {
+      margin-bottom: 20px;
+      padding: 10px;
+      border: 2px dashed #ccc;
+      text-align: center;
+    }
+    .file-list {
+      display: flex;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .file-item {
+      background: #f0f0f0;
+      padding: 5px 10px;
+      margin: 5px;
+      border-radius: 3px;
+      font-size: 14px;
+    }
+    h1, h2, h3, h4 {
+      color: #333;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 10px;
+      overflow: auto;
+      max-height: 200px;
+      border-radius: 4px;
+      white-space: pre-wrap;
+    }
+    /* Top-right counter */
+    .annotated-counter {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      background: #00796b;
+      color: white;
+      padding: 10px 15px;
+      border-radius: 4px;
+      font-weight: bold;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .counter-tab {
+      font-size: 14px;
+    }
+    /* Download button */
+    #download-json {
+      margin-top: 10px;
+      padding: 10px 15px;
+      background-color: #1976d2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    /* Relationships table */
+    #relationships-table-container {
+      overflow-x: auto;
+      word-wrap: break-word;
+      white-space: normal;
+      margin-bottom: 10px;
+    }
+    #relationships-table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    #relationships-table th, #relationships-table td {
+      border: 1px solid #ccc;
+      padding: 5px;
+      text-align: left;
+    }
+  </style>
 </head>
 <body>
-    <h1>Experiment Tree Visualization</h1>
-    
-    <div class="surprise-counter" id="surprise-counter">
-        Surprising Results: 0
+  <h1>Experiment Tree Visualization</h1>
+  
+  <!-- Top counter shows ratio of annotated nodes -->
+  <div class="annotated-counter" id="annotated-counter">
+    <div id="total-nodes" class="counter-tab">Total number of nodes: 0</div>
+    <!-- Note: using "annotation-text" here -->
+    <div id="annotation-text">Unique nodes annotated: 0 / 0</div>
+    <progress id="annotation-progress" value="0" max="0" style="width: 100%; margin-top: 5px;"></progress>
+  </div> 
+
+  <!-- Upload area -->
+  <div class="upload-area" id="upload-area">
+    <p>Drop node log files or a clusters file here or click to upload</p>
+    <input type="file" id="file-upload" multiple style="display: none">
+    <div class="file-list" id="file-list"></div>
+  </div>
+  
+  <div class="container">
+    <!-- Left Pane: Tree Pane -->
+    <div id="left-pane">
+      <div id="left-pane-header">
+        <span>Tree Pane</span>
+        <button id="left-fullscreen-btn" class="fullscreen-toggle">Full Screen</button>
+      </div>
+      <div id="tree-container"></div>
     </div>
-
-    <div class="context-selector">
-        <label>
-            <input type="radio" name="context" value="current" checked> Current
-        </label>
-        <label>
-            <input type="radio" name="context" value="branch"> Branch
-        </label>
-        <label>
-            <input type="radio" name="context" value="all"> All
-        </label>
+    <!-- Right Pane: Details Panel -->
+    <div id="details-panel">
+      <div id="details-panel-header">
+        <span>Node Details</span>
+        <button id="right-fullscreen-btn" class="fullscreen-toggle">Full Screen</button>
+      </div>
+      <div id="details-content">
+        <p>Click on a node to view details</p>
+      </div>
     </div>
+  </div>
+  
+  <!-- Download button -->
+  <div id="download-container" style="margin-top:20px;">
+    <button id="download-json">Download JSON</button>
+  </div>
+  
+  <script type="module">
+    import { getStructuredHypothesis } from './structuredHypothesis.js';
     
-    <div class="upload-container">
-        <div class="upload-area" id="upload-area">
-            <p>Drop node log files here or click to upload</p>
-            <input type="file" id="file-upload" multiple style="display: none">
-            <div class="file-list" id="file-list"></div>
-        </div>
-        <div class="sample-data">
-            <select id="sample-selector">
-                <option value="">Load Sample Data...</option>
-            </select>
-        </div>
-    </div>
-    
-    <div class="container">
-        <div id="tree-container"></div>
-        <div id="details-panel">
-            <h2>Node Details</h2>
-            <p>Click on a node to view details</p>
-        </div>
-    </div>
-    
-    <script>
-        // Global variables to store data
-        let beliefData = {};
-        let treeData = null;
-        let selectedContext = 'current';
-        let selectedNode = null; // Add this to track currently selected node
-        
-        // Add this near the top of your script section
-        const baseUrl = window.location.pathname.includes('/adv/') ? '/adv' : '';
-
-        // Initialize context selector
-        document.querySelectorAll('input[name="context"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                selectedContext = e.target.value;
-                if (selectedNode) {
-                    showNodeDetails(selectedNode); // Update details panel if a node is selected
-                }
-                // Rebuild tree with new context selection
-                if (Object.keys(beliefData).length > 0) {
-                    buildTreeFromBeliefs();
-                    updateSurpriseCounter(); // Add counter update
-                }
-            });
-        });
-
-        // Initialize the upload area
-        const uploadArea = document.getElementById('upload-area');
-        const fileUpload = document.getElementById('file-upload');
-        const fileList = document.getElementById('file-list');
-        
-        uploadArea.addEventListener('click', () => fileUpload.click());
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.style.background = '#f0f0f0';
-        });
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.style.background = 'none';
-        });
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.style.background = 'none';
-            
-            if (e.dataTransfer.files.length > 0) {
-                handleFiles(e.dataTransfer.files);
-            }
-        });
-        
-        fileUpload.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFiles(e.target.files);
-            }
-        });
-        
-        function handleFiles(files) {
-            // Clear previous files
-            fileList.innerHTML = '';
-            beliefData = {};
-            selectedContext = document.querySelector('input[name="context"]:checked').value;
-            
-            let filesProcessed = 0;
-            
-            Array.from(files).forEach(file => {
-                const beliefMatch = file.name.match(/belief_(\d+)_(\d+)\.json/);
-                
-                if (beliefMatch) {
-                    const fileItem = document.createElement('div');
-                    fileItem.className = 'file-item';
-                    fileItem.textContent = file.name;
-                    fileList.appendChild(fileItem);
-                    
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const content = e.target.result;
-                        parseBeliefFile(file.name, content);
-                        
-                        filesProcessed++;
-                        if (filesProcessed === files.length) {
-                            buildTreeFromBeliefs();
-                        }
-                    };
-                    reader.readAsText(file);
-                } else {
-                    filesProcessed++;
-                    if (filesProcessed === files.length) {
-                        buildTreeFromBeliefs();
+    document.addEventListener("DOMContentLoaded", () => {
+      // Global variables
+      let beliefData = {};
+      let treeData = null;
+      let selectedNode = null;
+      let annotatedNodes = [];
+      let answeredClusters = {}; // cluster number -> true if answered
+      let clusterMapping = {};   // mapping from node id ("0_0") -> cluster number
+      
+      // File processing with debug logging
+      function handleFiles(files) {
+        console.log("Handling files:", files);
+        fileList.innerHTML = '';
+        let filesProcessed = 0;
+        Array.from(files).forEach(file => {
+          console.log("Processing file:", file.name);
+          if (/cluster/i.test(file.name)) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              try {
+                const clustersData = JSON.parse(e.target.result);
+                for (const clusterKey in clustersData) {
+                  clustersData[clusterKey].forEach(item => {
+                    let id = item.node_id;
+                    if (id.startsWith("node_")) {
+                      id = id.slice(5);
                     }
+                    clusterMapping[id] = clusterKey;
+                    console.log(`Mapping node id ${id} to cluster ${clusterKey}`);
+                  });
                 }
-            });
-        }
-
-        function parseBeliefFile(filename, content) {
-            const match = filename.match(/belief_(\d+)_(\d+)\.json/);
-            if (!match) return;
-            
-            const level = parseInt(match[1]);
-            const index = parseInt(match[2]);
-            
-            try {
-                const data = JSON.parse(content);
-                if (!beliefData[level]) {
-                    beliefData[level] = {};
-                }
-                beliefData[level][index] = data;
-            } catch (e) {
-                console.error(`Error parsing belief file ${filename}:`, e);
-            }
-        }
-
-        function buildTreeFromBeliefs() {
-            const levels = Object.keys(beliefData).map(Number).sort((a, b) => a - b);
-            if (levels.length === 0) return;
-            
-            // Create root node
-            const root = {
-                id: "0_0",
-                level: 0,
-                index: 0,
-                data: getNodeDataFromBelief(beliefData[0][0]),
-                children: []
-            };
-            
-            // Determine branching factor from belief files
-            let branchingFactor = 0;
-            if (beliefData[1]) {
-                branchingFactor = Object.keys(beliefData[1]).length;
-            }
-            
-            // Build tree recursively
-            function addChildren(node, level) {
-                if (!beliefData[level]) return;
-                
-                const indices = Object.keys(beliefData[level]).map(Number).sort((a, b) => a - b);
-                for (const idx of indices) {
-                    const parentIndex = Math.floor(idx / branchingFactor);
-                    
-                    if (node.level === level - 1 && node.index === parentIndex) {
-                        const childId = `${level}_${idx}`;
-                        const childNode = {
-                            id: childId,
-                            level: level,
-                            index: idx,
-                            data: getNodeDataFromBelief(beliefData[level][idx]),
-                            children: []
-                        };
-                        
-                        node.children.push(childNode);
-                        addChildren(childNode, level + 1);
-                    }
-                }
-            }
-            
-            // Build complete tree
-            for (let i = 1; i < levels.length; i++) {
-                addChildren(root, i);
-            }
-            
-            treeData = root;
-            renderTree();
-            updateSurpriseCounter(); // Add counter update
-        }
-
-        function getNodeDataFromBelief(beliefArray) {
-            if (!beliefArray) return {};
-            
-            const priorBeliefs = beliefArray.filter(b => b.distribution === "prior");
-            const posteriorBeliefs = beliefArray.filter(b => b.distribution === "posterior");
-            
-            const priorBelief = priorBeliefs.find(b => b.context === selectedContext);
-            const posteriorBelief = posteriorBeliefs.find(b => b.context === selectedContext);
-            
-            if (!posteriorBelief) return {};
-            
-            const messages = posteriorBelief.messages || [];
-            let experiment = null;
-            let hypothesis = posteriorBelief.current_hypothesis || null;
-            let analysis = null;
-            let review = null;
-            
-            messages.forEach(msg => {
-                if (msg.name === "user_proxy") {
-                    experiment = msg.content;
-                } else if (msg.name === "experiment_analyst") {
-                    try {
-                        analysis = JSON.parse(msg.content).analysis;
-                    } catch (e) {
-                        analysis = msg.content;
-                    }
-                } else if (msg.name === "experiment_reviewer") {
-                    try {
-                        const reviewData = JSON.parse(msg.content);
-                        review = reviewData.feedback;
-                    } catch (e) {
-                        review = msg.content;
-                    }
-                }
-            });
-            
-            return {
-                experiment,
-                hypothesis,
-                analysis,
-                review,
-                priorSupportsHypothesis: priorBelief?.belief_result?.believes_hypothesis,
-                supportsHypothesis: posteriorBelief.belief_result.believes_hypothesis
-            };
-        }
-
-        function renderTree() {
-            if (!treeData) return;
-            
-            // Clear previous tree
-            d3.select("#tree-container").selectAll("*").remove();
-            
-            // Set up the D3 tree layout
-            const width = document.getElementById('tree-container').offsetWidth;
-            const height = document.getElementById('tree-container').offsetHeight;
-            
-            const margin = { top: 40, right: 90, bottom: 50, left: 90 };
-            const innerWidth = width - margin.left - margin.right;
-            const innerHeight = height - margin.top - margin.bottom;
-            
-            // Create the SVG container
-            const svg = d3.select("#tree-container")
-                .append("svg")
-                .attr("width", width)
-                .attr("height", height)
-                .append("g")
-                .attr("transform", `translate(${margin.left},${margin.top})`);
-            
-            // Create the tree layout
-            const treeLayout = d3.tree().size([innerHeight, innerWidth]);
-            
-            // Convert our custom tree structure to D3 hierarchy
-            const root = d3.hierarchy(treeData);
-            
-            // Assign the x and y coordinates to nodes
-            const tree = treeLayout(root);
-            
-            // Draw links between nodes
-            svg.selectAll(".link")
-                .data(tree.links())
-                .enter()
-                .append("path")
-                .attr("class", "link")
-                .attr("d", d3.linkHorizontal()
-                    .x(d => d.y)  // Swap x and y for horizontal tree
-                    .y(d => d.x));
-            
-            // Create node groups
-            const node = svg.selectAll(".node")
-                .data(tree.descendants())
-                .enter()
-                .append("g")
-                .attr("class", d => `node node-${d.data.id}`)
-                .attr("transform", d => `translate(${d.y},${d.x})`)
-                .on("click", (event, d) => showNodeDetails(d.data));
-            
-            // Add split colored circles to nodes
-            node.append("path")
-                .attr("d", d => {
-                    const r = 8;
-                    return `M${-r},0 A${r},${r} 0 0,1 ${r},0`;
-                })
-                .attr("class", "node-half")
-                .style("fill", d => {
-                    if (!d.data.data.review) return "#9E9E9E";
-                    return d.data.data.priorSupportsHypothesis === true ? "#4CAF50" : 
-                           d.data.data.priorSupportsHypothesis === false ? "#F44336" : 
-                           "#2196F3";
-                });
-            
-            node.append("path")
-                .attr("d", d => {
-                    const r = 8;
-                    return `M${-r},0 A${r},${r} 0 0,0 ${r},0`;
-                })
-                .attr("class", "node-half")
-                .style("fill", d => {
-                    if (!d.data.data.review) return "#9E9E9E";
-                    return d.data.data.supportsHypothesis === true ? "#4CAF50" : 
-                           d.data.data.supportsHypothesis === false ? "#F44336" : 
-                           "#2196F3";
-                });
-
-            // Add text labels to nodes
-            node.append("text")
-                .attr("dy", "0.31em")
-                .attr("x", d => d.children ? -12 : 12)
-                .attr("text-anchor", d => d.children ? "end" : "start")
-                .text(d => `Node ${d.data.level}_${d.data.index}`);
-        }
-        
-        function showNodeDetails(node) {
-            selectedNode = node; // Store currently selected node
-            // Rest of showNodeDetails function remains the same
-            d3.selectAll(".node").classed("selected", false);
-            d3.select(`.node.node-${node.id}`).classed("selected", true);
-            
-            const detailsPanel = document.getElementById('details-panel');
-            const data = node.data;
-            const beliefs = beliefData[node.level][node.index];
-            
-            // Format the details HTML
-            let html = `<h2>Node ${node.level}_${node.index} Details</h2>`;
-            
-            if (data.experiment) {
-                html += `<h3>Experiment</h3><pre>${data.experiment}</pre>`;
-            }
-            
-            if (data.hypothesis) {
-                html += `<h3>Hypothesis</h3><pre>${data.hypothesis}</pre>`;
-            }
-            
-            // Add belief distributions for each context
-            html += `<h3>Belief Distributions</h3>`;
-            const contexts = ["current", "branch", "all"];
-            
-            contexts.forEach(context => {
-                const priorBelief = beliefs.find(b => b.context === context && b.distribution === "prior");
-                const posteriorBelief = beliefs.find(b => b.context === context && b.distribution === "posterior");
-                
-                html += `<div class="belief-context">`;
-                html += `<div class="belief-subheader">Context: ${context}</div>`;
-                
-                if (priorBelief?.belief_result) {
-                    html += `<div class="belief-label">Prior</div>`;
-                    const {n_positive = 0, n_negative = 0} = priorBelief.belief_result;
-                    const total = n_positive + n_negative || 1; // Avoid division by zero
-                    
-                    html += `<div class="belief-bar">`;
-                    if (n_positive > 0) {
-                        html += `<div class="belief-segment belief-positive" style="width: ${(n_positive / total) * 100}%">
-                            ${n_positive}
-                        </div>`;
-                    }
-                    if (n_negative > 0) {
-                        html += `<div class="belief-segment belief-negative" style="width: ${(n_negative / total) * 100}%">
-                            ${n_negative}
-                        </div>`;
-                    }
-                    html += `</div>`;
-                }
-                
-                if (posteriorBelief?.belief_result) {
-                    html += `<div class="belief-label">Posterior</div>`;
-                    const {n_positive = 0, n_negative = 0} = posteriorBelief.belief_result;
-                    const total = n_positive + n_negative || 1; // Avoid division by zero
-                    
-                    html += `<div class="belief-bar">`;
-                    if (n_positive > 0) {
-                        html += `<div class="belief-segment belief-positive" style="width: ${(n_positive / total) * 100}%">
-                            ${n_positive}
-                        </div>`;
-                    }
-                    if (n_negative > 0) {
-                        html += `<div class="belief-segment belief-negative" style="width: ${(n_negative / total) * 100}%">
-                            ${n_negative}
-                        </div>`;
-                    }
-                    html += `</div>`;
-                }
-                
-                html += `</div>`;
-            });
-            
-            if (data.analysis) {
-                html += `<h3>Analysis</h3><pre>${data.analysis}</pre>`;
-                
-                if (data.review) {
-                    html += `<h3>Review</h3><pre>${data.review}</pre>`;
-                }
-            }
-            
-            if (data.supportsHypothesis !== null) {
-                const currentBelief = beliefs.find(b => b.context === selectedContext && b.distribution === "posterior");
-                const supportText = currentBelief?.belief_result?.believes_hypothesis ? 
-                    "<span style='color: green'>YES</span>" : 
-                    "<span style='color: red'>NO</span>";
-                html += `<h3>Supports Hypothesis (${selectedContext} context)</h3><p>${supportText}</p>`;
-            }
-            
-            detailsPanel.innerHTML = html;
-        }
-
-        function updateSurpriseCounter() {
-            let surprisingCount = 0;
-            
-            // Iterate through all nodes in beliefData
-            Object.keys(beliefData).forEach(level => {
-                Object.keys(beliefData[level]).forEach(index => {
-                    const beliefs = beliefData[level][index];
-                    const priorBelief = beliefs.find(b => b.context === selectedContext && b.distribution === "prior");
-                    const posteriorBelief = beliefs.find(b => b.context === selectedContext && b.distribution === "posterior");
-                    
-                    // Check if there's a review first
-                    const hasReview = posteriorBelief?.messages?.some(msg => msg.name === "experiment_reviewer");
-                    
-                    if (hasReview && 
-                        priorBelief?.belief_result?.believes_hypothesis !== undefined && 
-                        posteriorBelief?.belief_result?.believes_hypothesis !== undefined && 
-                        priorBelief.belief_result.believes_hypothesis !== posteriorBelief.belief_result.believes_hypothesis) {
-                        surprisingCount++;
-                    }
-                });
-            });
-            
-            document.getElementById('surprise-counter').textContent = `Surprising Results: ${surprisingCount}`;
-        }
-
-        // Sample data handling
-    const sampleSelector = document.getElementById('sample-selector');
-
-    // Load sample data list when page loads
-    fetch(`${baseUrl}/sample_data/index.json`)
-        .then(response => response.json())
-        .then(datasets => {
-            datasets.forEach(dataset => {
-                const option = document.createElement('option');
-                option.value = dataset.path;
-                option.textContent = dataset.name;
-                sampleSelector.appendChild(option);
-            });
-        })
-        .catch(error => {
-            console.error('Error loading sample datasets:', error);
-            sampleSelector.innerHTML = '<option value="">No samples available</option>';
-        });
-
-    sampleSelector.addEventListener('change', async (e) => {
-        const selectedValue = e.target.value;
-        if (!selectedValue) return;
-        
-        try {
-            const directoryPath = `${baseUrl}/sample_data/${selectedValue}`;
-            beliefData = {};
-            fileList.innerHTML = '';
-            
-            // Fetch the files.json that contains the list of belief files
-            const response = await fetch(`${directoryPath}/files.json`);
-            if (!response.ok) throw new Error('files.json not found');
-            const files = await response.json();
-            
-            // Load each belief file listed in files.json
-            const loadPromises = files.map(async (filename) => {
-                const response = await fetch(`${directoryPath}/${filename}`);
-                if (!response.ok) throw new Error(`Failed to load ${filename}`);
-                const content = await response.text();
-                parseBeliefFile(filename, content);
-                
-                // Add file to display list
-                const fileItem = document.createElement('div');
-                fileItem.className = 'file-item';
-                fileItem.textContent = filename;
-                fileList.appendChild(fileItem);
-            });
-            
-            await Promise.all(loadPromises);
-            
-            if (Object.keys(beliefData).length > 0) {
+              } catch (err) {
+                console.error("Error parsing cluster file:", err);
+              }
+              filesProcessed++;
+              if (filesProcessed === files.length) {
                 buildTreeFromBeliefs();
-            } else {
-                throw new Error('No belief files loaded');
+              }
+            };
+            reader.readAsText(file);
+          } else if (file.name.match(/belief_(\d+)_(\d+)\.json/)) {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.textContent = file.name;
+            fileList.appendChild(fileItem);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const content = e.target.result;
+              parseBeliefFile(file.name, content);
+              filesProcessed++;
+              if (filesProcessed === files.length) {
+                buildTreeFromBeliefs();
+              }
+            };
+            reader.readAsText(file);
+          } else {
+            filesProcessed++;
+            if (filesProcessed === files.length) {
+              buildTreeFromBeliefs();
             }
-            
-            // Reset selector
-            sampleSelector.value = '';
-            
-        } catch (error) {
-            console.error('Error loading sample dataset:', error);
-            alert('Failed to load sample dataset');
-            sampleSelector.value = '';
+          }
+        });
+      }
+      
+      const uploadArea = document.getElementById('upload-area');
+      const fileUpload = document.getElementById('file-upload');
+      const fileList = document.getElementById('file-list');
+      
+      uploadArea.addEventListener('click', () => fileUpload.click());
+      uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.style.background = '#f0f0f0';
+      });
+      uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.style.background = 'none';
+      });
+      uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.style.background = 'none';
+        console.log("Drop event:", e.dataTransfer.files);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          handleFiles(e.dataTransfer.files);
         }
-    });
-
-    </script>
+      });
+      
+      fileUpload.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          handleFiles(e.target.files);
+        }
+      });
+      
+      function parseBeliefFile(filename, content) {
+        const match = filename.match(/belief_(\d+)_(\d+)\.json/);
+        if (!match) return;
+        const level = parseInt(match[1]);
+        const index = parseInt(match[2]);
+        console.log(`Parsed belief file for level ${level}, index ${index}`);
+        try {
+          const data = JSON.parse(content);
+          if (!beliefData[level]) {
+            beliefData[level] = {};
+          }
+          beliefData[level][index] = data;
+        } catch (e) {
+          console.error(`Error parsing ${filename}:`, e);
+        }
+      }
+      
+      // Instead of one global reset for the node, we define two functions:
+      function resetExperimentAnnotationForNode(node) {
+        node.experimentValid = null;
+        // Remove this node's annotation from the global list
+        annotatedNodes = annotatedNodes.filter(a => a.node_id !== node.id);
+        if (node.cluster !== undefined) {
+          delete answeredClusters[node.cluster];
+        }
+        showNodeDetails(node);
+        updateAnnotatedCounter();
+        console.log(`Experiment annotation for node ${node.id} has been reset.`);
+      }
+      
+      function resetContradictionAnnotationForNode(node) {
+        node.contradiction = null;
+        annotatedNodes = annotatedNodes.filter(a => a.node_id !== node.id);
+        if (node.cluster !== undefined) {
+          delete answeredClusters[node.cluster];
+        }
+        showNodeDetails(node);
+        updateAnnotatedCounter();
+        console.log(`Hypothesis Validity ${node.id} has been reset.`);
+      }
+      
+      function buildTreeFromBeliefs() {
+        const levels = Object.keys(beliefData).map(Number).sort((a, b) => a - b);
+        if (levels.length === 0) return;
+        console.log("Building tree from levels:", levels);
+        const root = {
+          id: "0_0",
+          level: 0,
+          index: 0,
+          data: getNodeDataFromBelief(beliefData[0][0]),
+          children: []
+        };
+        let branchingFactor = 0;
+        if (beliefData[1]) {
+          branchingFactor = Object.keys(beliefData[1]).length;
+        }
+        function addChildren(node, level) {
+          if (!beliefData[level]) return;
+          const indices = Object.keys(beliefData[level]).map(Number).sort((a, b) => a - b);
+          indices.forEach(idx => {
+            const parentIndex = Math.floor(idx / branchingFactor);
+            if (node.level === level - 1 && node.index === parentIndex) {
+              const childId = `${level}_${idx}`;
+              const childNode = {
+                id: childId,
+                level: level,
+                index: idx,
+                data: getNodeDataFromBelief(beliefData[level][idx]),
+                children: []
+              };
+              node.children.push(childNode);
+              console.log(`Adding child ${childId} to node ${node.id}`);
+              addChildren(childNode, level + 1);
+            }
+          });
+        }
+        for (let i = 1; i < levels.length; i++) {
+          addChildren(root, i);
+        }
+        treeData = root;
+        console.log("Tree built:", treeData);
+        assignClusters(treeData);
+        renderTree();
+        updateAnnotatedCounter();
+      }
+      
+      function assignClusters(node) {
+        if (node && node.id && clusterMapping[node.id] !== undefined) {
+          node.data.cluster = clusterMapping[node.id];
+          node.cluster = clusterMapping[node.id];
+          console.log(`Assigned cluster ${node.cluster} to node ${node.id}`);
+        }
+        if (node.children) {
+          node.children.forEach(child => assignClusters(child));
+        }
+      }
+      
+      function getNodeDataFromBelief(beliefArray) {
+        if (!beliefArray) return {};
+        const priorBeliefs = beliefArray.filter(b => b.distribution === "prior");
+        const posteriorBeliefs = beliefArray.filter(b => b.distribution === "posterior");
+        const priorBelief = priorBeliefs[0];
+        const posteriorBelief = posteriorBeliefs[0];
+        if (!posteriorBelief) return {};
+        const messages = posteriorBelief.messages || [];
+        let experiment = null;
+        let hypothesis = posteriorBelief.current_hypothesis || null;
+        let analysis = null;
+        let review = null;
+        messages.forEach(msg => {
+          if (msg.name === "user_proxy") {
+            experiment = msg.content;
+          } else if (msg.name === "experiment_analyst") {
+            try {
+              analysis = JSON.parse(msg.content).analysis;
+            } catch (e) {
+              analysis = msg.content;
+            }
+          } else if (msg.name === "experiment_reviewer") {
+            try {
+              const reviewData = JSON.parse(msg.content);
+              review = reviewData.feedback;
+            } catch (e) {
+              review = msg.content;
+            }
+          }
+        });
+        const structuredHypothesis = getStructuredHypothesis(messages);
+        return {
+          hypothesis,
+          experiment,
+          analysis,
+          review,
+          priorSupportsHypothesis: priorBelief ? priorBelief.belief_result?.believes_hypothesis : undefined,
+          supportsHypothesis: posteriorBelief ? posteriorBelief.belief_result?.believes_hypothesis : undefined,
+          structuredHypothesis: structuredHypothesis
+        };
+      }
+      
+      // Render tree in horizontal layout using d3.linkHorizontal()
+      function renderTree() {
+        if (!treeData) return;
+        d3.select("#tree-container").selectAll("*").remove();
+        const container = document.getElementById('tree-container');
+        const width = container.offsetWidth;
+        const height = container.offsetHeight || 400;
+        const margin = { top: 40, right: 90, bottom: 50, left: 90 };
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const treeLayout = d3.tree().size([innerHeight, innerWidth]);
+        const svg = d3.select("#tree-container")
+                      .append("svg")
+                      .attr("width", width)
+                      .attr("height", height)
+                      .append("g")
+                      .attr("transform", `translate(${margin.left},${margin.top})`);
+        const root = d3.hierarchy(treeData);
+        const treeDataLayout = treeLayout(root);
+        svg.selectAll(".link")
+           .data(treeDataLayout.links())
+           .enter()
+           .append("path")
+           .attr("class", "link")
+           .attr("d", d3.linkHorizontal()
+                        .x(d => d.y)
+                        .y(d => d.x));
+        const node = svg.selectAll(".node")
+                        .data(treeDataLayout.descendants())
+                        .enter()
+                        .append("g")
+                        .attr("class", d => `node node-${d.data.id}`)
+                        .attr("transform", d => `translate(${d.y},${d.x})`)
+                        .on("click", (event, d) => {
+                          console.log("Node clicked:", d.data.id, "Cluster:", d.data.cluster);
+                          showNodeDetails(d.data);
+                          updateClusterHighlights(d.data.cluster);
+                        });
+        node.append("path")
+            .attr("d", d => {
+              const r = 8;
+              return `M${-r},0 A${r},${r} 0 0,1 ${r},0`;
+            })
+            .attr("class", "node-half")
+            .style("fill", d => {
+              if (!d.data.data.review) return "#9E9E9E";
+              return d.data.data.priorSupportsHypothesis === true ? "#4CAF50" : 
+                     d.data.data.priorSupportsHypothesis === false ? "#F44336" : 
+                     "#2196F3";
+            });
+        node.append("path")
+            .attr("d", d => {
+              const r = 8;
+              return `M${-r},0 A${r},${r} 0 0,0 ${r},0`;
+            })
+            .attr("class", "node-half")
+            .style("fill", d => {
+              if (!d.data.data.review) return "#9E9E9E";
+              return d.data.data.supportsHypothesis === true ? "#4CAF50" : 
+                     d.data.data.supportsHypothesis === false ? "#F44336" : 
+                     "#2196F3";
+            });
+        // Label outside the circle as "Node_n_k"
+        node.append("text")
+            .attr("dy", "0.31em")
+            .attr("x", d => d.children ? -12 : 12)
+            .attr("text-anchor", d => d.children ? "end" : "start")
+            .text(d => `Node_${d.data.level}_${d.data.index}`);
+        // Cluster number inside the circle
+        node.append("text")
+            .attr("class", "node-cluster-label")
+            .attr("text-anchor", "middle")
+            .attr("dy", "0.35em")
+            .text(d => d.data.cluster !== undefined ? d.data.cluster : "N/A");
+      }
+      
+      // Update cluster highlights and deactivation.
+      let lastSelectedCluster = null;
+      function updateClusterHighlights(selectedCluster) {
+        d3.selectAll(".node").each(function(d) {
+          if (d.data.cluster !== undefined) {
+            if (d.data.cluster !== selectedCluster && !answeredClusters[d.data.cluster]) {
+              d3.select(this).classed("deactivated", false).classed("active-cluster", false);
+            }
+          }
+        });
+        d3.selectAll(".node").each(function(d) {
+          if (d.data.cluster !== undefined && d.data.cluster === selectedCluster) {
+            if (d.data.id === selectedNode.id) {
+              d3.select(this).classed("active-cluster", true).classed("deactivated", false);
+            } else {
+              d3.select(this).classed("active-cluster", false).classed("deactivated", true);
+            }
+          }
+        });
+        lastSelectedCluster = selectedCluster;
+      }
+      
+      function countNodes(node) {
+        if (!node) return 0;
+        let count = 1;
+        if (node.children) {
+          node.children.forEach(child => {
+            count += countNodes(child);
+          });
+        }
+        return count;
+      }
+      
+      function getTotalNodes() {
+        return countNodes(treeData);
+      }
+      
+      // Updated annotated counter function using the correct element id and updating the progress bar.
+      function updateAnnotatedCounter() {
+        const total = getTotalNodes();
+        const uniqueClusters = new Set();
+        function collectClusters(node) {
+          if (node && node.data.cluster !== undefined) {
+            uniqueClusters.add(node.data.cluster);
+          }
+          if (node.children) {
+            node.children.forEach(child => collectClusters(child));
+          }
+        }
+        collectClusters(treeData);
+        const totalNodesElem = document.getElementById("total-nodes");
+        const annotationTextElem = document.getElementById("annotation-text");
+        totalNodesElem.textContent = `Total number of nodes: ${total}`;
+        const answeredCount = Object.keys(answeredClusters).length;
+        annotationTextElem.textContent = `Unique nodes annotated: ${answeredCount} / ${uniqueClusters.size}`;
+        const progressElem = document.getElementById("annotation-progress");
+        progressElem.value = answeredCount;
+        progressElem.max = uniqueClusters.size;
+        console.log("Annotated counter updated:", totalNodesElem.textContent, annotationTextElem.textContent);
+      }
+      
+      function checkIfAnnotated(node, data) {
+        const reviewExists = data.review && data.review.trim().length > 0;
+        // Node is only annotated if experimentValid is set and, if review exists, contradiction is also set.
+        if (node.experimentValid && (reviewExists ? node.contradiction : true)) {
+          // const surprisal_gt = data.priorSupportsHypothesis !== data.supportsHypothesis;
+          const annotation = {
+            node_id: node.id,
+            cluster: node.cluster,
+            structured_hypothesis: data.structuredHypothesis,
+            experiment: data.experiment,
+            analysis: data.analysis,
+            review: data.review,
+            experiment_validity: node.experimentValid,
+            // surprisal_gt: surprisal_gt
+            hypothesis_verification: node.contradiction
+          };
+          if (!annotatedNodes.some(a => a.node_id === node.id)) {
+            annotatedNodes.push(annotation);
+            console.log("Annotation added for node:", node.id, annotation);
+            if (node.cluster !== undefined) {
+              answeredClusters[node.cluster] = true;
+              console.log("Cluster", node.cluster, "marked as answered.");
+            }
+          }
+        }
+        updateAnnotatedCounter();
+      }
+      
+      function showNodeDetails(nodeData) {
+        selectedNode = nodeData;
+        console.log("Showing details for node:", nodeData.id);
+        d3.selectAll(".node").classed("selected", false);
+        d3.select(`.node.node-${nodeData.id}`).classed("selected", true);
+        const detailsContent = document.getElementById('details-content');
+        const data = nodeData.data;
+        let html = "";
+        // Node details header
+        html += `<p><strong>Node ID:</strong> ${nodeData.id} | <strong>Cluster:</strong> ${data.cluster !== undefined ? data.cluster : "N/A"}</p>`;
+        // Hypothesis
+        if (data.hypothesis) {
+          html += `<h3>Hypothesis</h3><pre>${data.hypothesis}</pre>`;
+        }
+        // Structured Hypothesis Details
+        if (data.structuredHypothesis && data.structuredHypothesis.length > 0) {
+          const stHypo = data.structuredHypothesis[0];
+          html += `<h3>Structured Hypothesis Details</h3>`;
+          html += `<h4>Variables</h4>
+                   <div class="variable-tabs"></div>`;
+          html += `<h4>Relationships</h4>
+                   <div id="relationships-table-container">
+                     <table id="relationships-table">
+                       <thead>
+                         <tr>
+                           <th>Explanatory</th>
+                           <th>Response</th>
+                           <th>Relationship</th>
+                         </tr>
+                       </thead>
+                       <tbody></tbody>
+                     </table>
+                   </div>`;
+          html += `<h4>Contexts</h4><p>${stHypo.contexts}</p>`;
+        }
+        // Experiment, Analysis, Review
+        if (data.experiment) {
+          html += `<h3>Experiment</h3><pre>${data.experiment}</pre>`;
+        }
+        if (data.analysis) {
+          html += `<h3>Analysis</h3><pre>${data.analysis}</pre>`;
+        }
+        if (data.review) {
+          html += `<h3>Review</h3><pre>${data.review}</pre>`;
+        }
+        // Append questions with separate reset buttons.
+        let questionsHtml = "";
+        if (data.experiment) {
+          let disableExp = (nodeData.cluster !== undefined && answeredClusters[nodeData.cluster]);
+          questionsHtml += `<div id="exp-questions">
+            <h3>Experiment Validity</h3>
+            <p>Is the experiment valid?</p>
+            <button id="experiment-valid-yes" class="yes" ${disableExp ? "disabled" : ""}>Yes</button>
+            <button id="experiment-valid-no" class="no" ${disableExp ? "disabled" : ""}>No</button>
+            <button id="experiment-valid-unsure" class="unsure" ${disableExp ? "disabled" : ""}>Unsure</button>
+            <button class="reset-experiment reset">Reset Experiment</button>
+            <p id="experiment-valid-answer"></p>
+          </div>`;
+          if (nodeData.experimentValid) {
+            document.getElementById('experiment-valid-answer').textContent = `You selected: ${nodeData.experimentValid}`;
+          }
+        }
+        if (data.review) {
+          let disableContr = (nodeData.cluster !== undefined && answeredClusters[nodeData.cluster]);
+          questionsHtml += `<div id="contradiction-questions">
+            <h3>Hypothesis Verification</h3>
+            <p>Is the hypothesis true or false?</p>
+            <button id="contradiction-yes" class="yes" ${disableContr ? "disabled" : ""}>True</button>
+            <button id="contradiction-no" class="no" ${disableContr ? "disabled" : ""}>False</button>
+            <button id="contradiction-unsure" class="unsure" ${disableContr ? "disabled" : ""}>Unsure</button>
+            <button class="reset-contradiction reset">Reset Contradiction</button>
+            <p id="contradiction-answer"></p>
+          </div>`;
+          if (nodeData.contradiction) {
+            document.getElementById('contradiction-answer').textContent = `You selected: ${nodeData.contradiction}`;
+          }
+        }
+        detailsContent.innerHTML = html + questionsHtml;
+        
+        // Attach reset event listeners to the dynamically added reset buttons:
+        const resetExpButton = detailsContent.querySelector('.reset-experiment');
+        if (resetExpButton) {
+          resetExpButton.addEventListener('click', () => {
+            resetExperimentAnnotationForNode(nodeData);
+          });
+        }
+        const resetContrButton = detailsContent.querySelector('.reset-contradiction');
+        if (resetContrButton) {
+          resetContrButton.addEventListener('click', () => {
+            resetContradictionAnnotationForNode(nodeData);
+          });
+        }
+        
+        // Process Structured Hypothesis: Variables and Relationships.
+        if (data.structuredHypothesis && data.structuredHypothesis.length > 0) {
+          const stHypo = data.structuredHypothesis[0];
+          const varTabsContainer = detailsContent.querySelector('.variable-tabs');
+          if (varTabsContainer) {
+            let variables = stHypo.variables.split(',').map(v => v.trim()).filter(v => v.length > 0);
+            const colors = ['#e0f7fa', '#e8f5e9', '#fff3e0', '#f3e5f5', '#e1f5fe'];
+            variables.forEach((v, i) => {
+              let tab = document.createElement('span');
+              tab.textContent = v;
+              tab.className = 'variable-tab';
+              tab.style.backgroundColor = colors[i % colors.length];
+              tab.style.marginRight = "10px";
+              tab.style.marginBottom = "10px";
+              varTabsContainer.appendChild(tab);
+            });
+          }
+          const relTableBody = detailsContent.querySelector('#relationships-table tbody');
+          if (relTableBody) {
+            let relLines = stHypo.relationships.split('\n').filter(line => line.trim().length > 0);
+            relLines.forEach(line => {
+              let cleanedLine = line.replace(/Relationship set \d+:\s*/i, '');
+              let regex = /explanatory:\s*([^;]+);\s*response:\s*([^;]+);\s*relationship:\s*(.+)/i;
+              let match = cleanedLine.match(regex);
+              let tr = document.createElement('tr');
+              if (match) {
+                let tdExp = document.createElement('td');
+                tdExp.textContent = match[1].trim();
+                let tdResp = document.createElement('td');
+                tdResp.textContent = match[2].trim();
+                let tdRel = document.createElement('td');
+                tdRel.textContent = match[3].trim();
+                tr.appendChild(tdExp);
+                tr.appendChild(tdResp);
+                tr.appendChild(tdRel);
+              } else {
+                let td = document.createElement('td');
+                td.textContent = cleanedLine;
+                td.colSpan = 3;
+                tr.appendChild(td);
+              }
+              relTableBody.appendChild(tr);
+            });
+          }
+        }
+        
+        const expValidYes = document.getElementById('experiment-valid-yes');
+        const expValidNo = document.getElementById('experiment-valid-no');
+        const expValidUnsure = document.getElementById('experiment-valid-unsure');
+        if (expValidYes && expValidNo && expValidUnsure && !expValidYes.disabled) {
+          expValidYes.addEventListener('click', () => {
+            nodeData.experimentValid = "Yes";
+            document.getElementById('experiment-valid-answer').textContent = "You selected: Yes";
+            checkIfAnnotated(nodeData, data);
+          });
+          expValidNo.addEventListener('click', () => {
+            nodeData.experimentValid = "No";
+            document.getElementById('experiment-valid-answer').textContent = "You selected: No";
+            checkIfAnnotated(nodeData, data);
+          });
+          expValidUnsure.addEventListener('click', () => {
+            nodeData.experimentValid = "Unsure";
+            document.getElementById('experiment-valid-answer').textContent = "You selected: Unsure";
+            checkIfAnnotated(nodeData, data);
+          });
+        }
+        
+        // const contradictionYes = document.getElementById('contradiction-yes');
+        // const contradictionNo = document.getElementById('contradiction-no');
+        // const contradictionUnsure = document.getElementById('contradiction-unsure');
+        // if (contradictionYes && contradictionNo && contradictionUnsure && !contradictionYes.disabled) {
+        //   contradictionYes.addEventListener('click', () => {
+        //     nodeData.contradiction = "True";
+        //     document.getElementById('contradiction-answer').textContent = "You selected: True";
+        //     checkIfAnnotated(nodeData, data);
+        //   });
+        //   contradictionNo.addEventListener('click', () => {
+        //     nodeData.contradiction = "False";
+        //     document.getElementById('contradiction-answer').textContent = "You selected: False";
+        //     checkIfAnnotated(nodeData, data);
+        //   });
+        //   contradictionUnsure.addEventListener('click', () => {
+        //     nodeData.contradiction = "Unsure";
+        //     document.getElementById('contradiction-answer').textContent = "You selected: Unsure";
+        //     checkIfAnnotated(nodeData, data);
+        //   });
+        // }
+        const contradictionYes = document.getElementById('contradiction-yes');
+        const contradictionNo = document.getElementById('contradiction-no');
+        const contradictionUnsure = document.getElementById('contradiction-unsure');
+        if (contradictionYes && contradictionNo && contradictionUnsure) {
+          contradictionYes.addEventListener('click', () => {
+            nodeData.contradiction = "True";
+            document.getElementById('contradiction-answer').textContent = "You selected: True";
+            checkIfAnnotated(nodeData, data);
+          });
+          contradictionNo.addEventListener('click', () => {
+            nodeData.contradiction = "False";
+            document.getElementById('contradiction-answer').textContent = "You selected: False";
+            checkIfAnnotated(nodeData, data);
+          });
+          contradictionUnsure.addEventListener('click', (event) => {
+            event.stopPropagation();
+            nodeData.contradiction = "Unsure";
+            document.getElementById('contradiction-answer').textContent = "You selected: Unsure";
+            checkIfAnnotated(nodeData, data);
+          });
+        }
+      }
+      
+      // Full screen toggle for Left Pane
+      const leftFullScreenBtn = document.getElementById('left-fullscreen-btn');
+      const leftPane = document.getElementById('left-pane');
+      const detailsPanel = document.getElementById('details-panel');
+      let leftFullScreen = false;
+      leftFullScreenBtn.addEventListener('click', () => {
+        if (!leftFullScreen) {
+          leftPane.style.width = "100%";
+          detailsPanel.style.display = "none";
+          leftFullScreenBtn.textContent = "Normal";
+          leftFullScreen = true;
+          console.log("Left pane set to full screen.");
+        } else {
+          leftPane.style.width = "50%";
+          detailsPanel.style.display = "block";
+          leftFullScreenBtn.textContent = "Full Screen";
+          leftFullScreen = false;
+          console.log("Left pane set to normal screen.");
+        }
+        setTimeout(() => {
+          if (treeData) renderTree();
+        }, 100);
+      });
+      
+      // Full screen toggle for Right Pane
+      const rightFullScreenBtn = document.getElementById('right-fullscreen-btn');
+      let rightFullScreen = false;
+      rightFullScreenBtn.addEventListener('click', () => {
+        if (!rightFullScreen) {
+          detailsPanel.style.width = "100%";
+          leftPane.style.display = "none";
+          rightFullScreenBtn.textContent = "Normal";
+          rightFullScreen = true;
+          console.log("Right pane set to full screen.");
+        } else {
+          detailsPanel.style.width = "50%";
+          leftPane.style.display = "block";
+          rightFullScreenBtn.textContent = "Full Screen";
+          rightFullScreen = false;
+          console.log("Right pane set to normal screen.");
+        }
+      });
+      
+      // Download JSON button
+      const downloadBtn = document.getElementById('download-json');
+      downloadBtn.addEventListener('click', () => {
+        if (annotatedNodes.length === 0) {
+          alert("No data to download.");
+          return;
+        }
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(annotatedNodes, null, 2));
+        const downloadAnchor = document.createElement("a");
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", "annotations.json");
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        console.log("Downloaded JSON.");
+      });
+      
+    }); // End DOMContentLoaded
+  </script>
 </body>
 </html>
