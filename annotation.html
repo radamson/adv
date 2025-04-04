@@ -555,6 +555,17 @@
             .attr("text-anchor", "middle")
             .attr("dy", "0.35em")
             .text(d => d.data.cluster !== undefined ? d.data.cluster : "N/A");
+
+        node.append("text")
+          .attr("x", 0)
+          .attr("y", -14)  // Positioned above the node
+          .attr("text-anchor", "middle")
+          .attr("font-size", "14px")
+          .attr("fill", "#2E7D32")  // Green color
+          .text(d => {
+            const isAnnotated = annotatedNodes.some(a => a.node_id === d.data.id);
+            return isAnnotated ? "✔" : "";
+          });
       }
       
       // Update cluster highlights and deactivation.
@@ -644,6 +655,7 @@
           }
         }
         updateAnnotatedCounter();
+        renderTree();
       }
       
       function showNodeDetails(nodeData) {
