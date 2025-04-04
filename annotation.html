@@ -21,14 +21,36 @@
     }
     /* Panes */
     #left-pane, #details-panel {
+      flex: 1;
       width: 50%;
       box-sizing: border-box;
       transition: width 0.3s, display 0.3s;
     }
+
     #left-pane {
+      display: flex;
+      flex-direction: column;
+      /* Optionally, set a minimum height if desired */
+      min-height: 600px;
+    }
+
+    /* Let the tree container expand to fill the left pane */
+    #tree-container {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Ensure the overall page allows full height usage */
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    /* #left-pane {
+      min-height: 800px;
       border: 1px solid #ccc;
       padding: 10px;
-    }
+    } */
     #details-panel {
       border: 1px solid #ccc;
       padding: 20px;
@@ -42,12 +64,13 @@
       margin-bottom: 10px;
     }
     /* Tree container */
-    #tree-container {
+    /* #tree-container {
+      flex: 1;
       border: 1px solid #ccc;
       padding: 10px;
       overflow: auto;
       min-height: 400px;
-    }
+    } */
     /* Buttons */
     button.yes {
       background-color: green;
@@ -429,10 +452,14 @@
       }
       
       function assignClusters(node) {
-        if (node && node.id && clusterMapping[node.id] !== undefined) {
-          node.data.cluster = clusterMapping[node.id];
-          node.cluster = clusterMapping[node.id];
-          console.log(`Assigned cluster ${node.cluster} to node ${node.id}`);
+        if (node && node.id) {
+          if (clusterMapping[node.id] !== undefined) {
+            node.data.cluster = clusterMapping[node.id];
+            node.cluster = clusterMapping[node.id];
+            console.log(`Assigned cluster ${node.cluster} to node ${node.id}`);
+          } else {
+            console.warn(`No matching cluster for node id: ${node.id}`);
+          }
         }
         if (node.children) {
           node.children.forEach(child => assignClusters(child));
@@ -480,17 +507,21 @@
           structuredHypothesis: structuredHypothesis
         };
       }
-      
-      // Render tree in horizontal layout using d3.linkHorizontal()
       function renderTree() {
         if (!treeData) return;
         d3.select("#tree-container").selectAll("*").remove();
+
         const container = document.getElementById('tree-container');
         const width = container.offsetWidth;
-        const height = container.offsetHeight || 400;
+        const nodeCount = countNodes(treeData);
+        const height = Math.max(container.offsetHeight, nodeCount * 20);
+
         const margin = { top: 40, right: 90, bottom: 50, left: 90 };
+
+        // Calculate inner dimensions based on the container's size
         const innerWidth = width - margin.left - margin.right;
         const innerHeight = height - margin.top - margin.bottom;
+
         const treeLayout = d3.tree().size([innerHeight, innerWidth]);
         const svg = d3.select("#tree-container")
                       .append("svg")
@@ -498,16 +529,21 @@
                       .attr("height", height)
                       .append("g")
                       .attr("transform", `translate(${margin.left},${margin.top})`);
+
         const root = d3.hierarchy(treeData);
         const treeDataLayout = treeLayout(root);
+
+        // Render links
         svg.selectAll(".link")
-           .data(treeDataLayout.links())
-           .enter()
-           .append("path")
-           .attr("class", "link")
-           .attr("d", d3.linkHorizontal()
+          .data(treeDataLayout.links())
+          .enter()
+          .append("path")
+          .attr("class", "link")
+          .attr("d", d3.linkHorizontal()
                         .x(d => d.y)
                         .y(d => d.x));
+
+        // Render nodes
         const node = svg.selectAll(".node")
                         .data(treeDataLayout.descendants())
                         .enter()
@@ -519,55 +555,30 @@
                           showNodeDetails(d.data);
                           updateClusterHighlights(d.data.cluster);
                         });
-        node.append("path")
-            .attr("d", d => {
-              const r = 8;
-              return `M${-r},0 A${r},${r} 0 0,1 ${r},0`;
-            })
-            .attr("class", "node-half")
+
+        // Example for rendering the node shapes and labels...
+        node.append("circle")
+            .attr("r", 8)
             .style("fill", d => {
               if (!d.data.data.review) return "#9E9E9E";
               return d.data.data.priorSupportsHypothesis === true ? "#4CAF50" : 
-                     d.data.data.priorSupportsHypothesis === false ? "#F44336" : 
-                     "#2196F3";
+                    d.data.data.priorSupportsHypothesis === false ? "#F44336" : 
+                    "#2196F3";
             });
-        node.append("path")
-            .attr("d", d => {
-              const r = 8;
-              return `M${-r},0 A${r},${r} 0 0,0 ${r},0`;
-            })
-            .attr("class", "node-half")
-            .style("fill", d => {
-              if (!d.data.data.review) return "#9E9E9E";
-              return d.data.data.supportsHypothesis === true ? "#4CAF50" : 
-                     d.data.data.supportsHypothesis === false ? "#F44336" : 
-                     "#2196F3";
-            });
-        // Label outside the circle as "Node_n_k"
+
         node.append("text")
             .attr("dy", "0.31em")
             .attr("x", d => d.children ? -12 : 12)
             .attr("text-anchor", d => d.children ? "end" : "start")
             .text(d => `Node_${d.data.level}_${d.data.index}`);
-        // Cluster number inside the circle
+
+        // Cluster number inside the node
         node.append("text")
             .attr("class", "node-cluster-label")
             .attr("text-anchor", "middle")
             .attr("dy", "0.35em")
             .text(d => d.data.cluster !== undefined ? d.data.cluster : "N/A");
-
-        node.append("text")
-          .attr("x", 0)
-          .attr("y", -14)  // Positioned above the node
-          .attr("text-anchor", "middle")
-          .attr("font-size", "14px")
-          .attr("fill", "#2E7D32")  // Green color
-          .text(d => {
-            const isAnnotated = annotatedNodes.some(a => a.node_id === d.data.id);
-            return isAnnotated ? "✔" : "";
-          });
-      }
-      
+      }      
       // Update cluster highlights and deactivation.
       let lastSelectedCluster = null;
       function updateClusterHighlights(selectedCluster) {
@@ -655,7 +666,6 @@
           }
         }
         updateAnnotatedCounter();
-        renderTree();
       }
       
       function showNodeDetails(nodeData) {
