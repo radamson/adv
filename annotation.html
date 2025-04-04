@@ -516,6 +516,7 @@
         const nodeCount = countNodes(treeData);
         const height = Math.max(container.offsetHeight, nodeCount * 20);
 
+
         const margin = { top: 40, right: 90, bottom: 50, left: 90 };
 
         // Calculate inner dimensions based on the container's size
@@ -578,6 +579,18 @@
             .attr("text-anchor", "middle")
             .attr("dy", "0.35em")
             .text(d => d.data.cluster !== undefined ? d.data.cluster : "N/A");
+
+        node.append("text")
+            .attr("x", 0)
+            .attr("y", -14)  // positioned above the node
+            .attr("text-anchor", "middle")
+            .attr("font-size", "14px")
+            .attr("fill", "#2E7D32") // green
+            .text(d => {
+              const isAnnotated = annotatedNodes.some(a => a.node_id === d.data.id);
+              return isAnnotated ? "✔" : "";
+            });
+
       }      
       // Update cluster highlights and deactivation.
       let lastSelectedCluster = null;
@@ -666,6 +679,7 @@
           }
         }
         updateAnnotatedCounter();
+        renderTree();
       }
       
       function showNodeDetails(nodeData) {
