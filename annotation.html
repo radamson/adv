@@ -263,9 +263,15 @@
   </div>
   
   <!-- Download button -->
-  <div id="download-container" style="margin-top:20px;">
-    <button id="download-json">Download JSON</button>
+  <div id="action-bar" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+    <button id="download-json" style="padding: 10px 15px; background-color: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      Download JSON
+    </button>
+    <button id="next-unannotated" style="padding: 10px 15px; background-color: #009688; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      Next Unannotated
+    </button>
   </div>
+  
   
   <script type="module">
     import { getStructuredHypothesis } from './structuredHypothesis.js';
@@ -275,6 +281,7 @@
       let beliefData = {};
       let treeData = null;
       let selectedNode = null;
+      let allNodesFlat = [];
       let annotatedNodes = [];
       let answeredClusters = {}; // cluster number -> true if answered
       let clusterMapping = {};   // mapping from node id ("0_0") -> cluster number
@@ -445,6 +452,8 @@
           addChildren(root, i);
         }
         treeData = root;
+        allNodesFlat = [];
+        flattenNodes(treeData, allNodesFlat);
         console.log("Tree built:", treeData);
         assignClusters(treeData);
         renderTree();
@@ -624,6 +633,13 @@
         }
         return count;
       }
+
+      function flattenNodes(node, list) {
+        if (node.id !== "0_0") list.push(node);  // Skip node_0_0
+        if (node.children) {
+          node.children.forEach(child => flattenNodes(child, list));
+        }
+      }
       
       function getTotalNodes() {
         return countNodes(treeData);
@@ -730,7 +746,7 @@
         // Append questions with separate reset buttons.
         let questionsHtml = "";
         if (data.experiment) {
-          let disableExp = (nodeData.cluster !== undefined && answeredClusters[nodeData.cluster]);
+          let disableExp = (nodeData.id === "0_0") || (nodeData.cluster !== undefined && answeredClusters[nodeData.cluster]);
           questionsHtml += `<div id="exp-questions">
             <h3>Experiment Validity</h3>
             <p>Is the experiment valid?</p>
@@ -745,7 +761,7 @@
           }
         }
         if (data.review) {
-          let disableContr = (nodeData.cluster !== undefined && answeredClusters[nodeData.cluster]);
+          let disableContr = (nodeData.id === "0_0") || (nodeData.cluster !== undefined && answeredClusters[nodeData.cluster]);
           questionsHtml += `<div id="contradiction-questions">
             <h3>Hypothesis Verification</h3>
             <p>Is the hypothesis true or false?</p>
@@ -943,6 +959,20 @@
         downloadAnchor.click();
         downloadAnchor.remove();
         console.log("Downloaded JSON.");
+      });
+
+      const nextButton = document.getElementById('next-unannotated');
+      nextButton.addEventListener('click', () => {
+        const next = allNodesFlat.find(n => {
+          return !(n.cluster in answeredClusters);
+        });
+        if (next) {
+          showNodeDetails(next);
+          updateClusterHighlights(next.cluster);
+          console.log("Moved to next unannotated node:", next.id);
+        } else {
+          alert("All clusters have been annotated!");
+        }
       });
       
     }); // End DOMContentLoaded
