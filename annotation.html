@@ -968,16 +968,30 @@
             annotation: annotation
           });
         });
-
+        
+        let allSelected;
         // Save/update the global duplicate annotations for this node.
         duplicateAnnotationsGlobal[currentNode.id] = duplicateData;
+        
+        if (duplicateData.duplicateHypotheses.length === 0) {
+          console.log("No duplicate hypotheses found for this node.");
+          currentNode.data.isDedupAnnotated = true;
+          allSelected = true;
+          console.log("All selected:", allSelected);
+        } else {
+          console.log("Duplicate hypotheses found...");
+          // Set the flag to true only if every duplicate hypothesis has a non-null annotation.
+          allSelected = duplicateData.duplicateHypotheses.every(item => item.annotation !== null);
+          currentNode.data.isDedupAnnotated = allSelected;
+          console.log("All selected:", allSelected);
+        }
 
         // Set the new isDedupAnnotated flag:
         // It is true only if every duplicate hypothesis has a non-null annotation.
-        const allSelected = duplicateData.duplicateHypotheses.every(item => item.annotation !== null);
-        console.log("All selected:", allSelected);
+        // const allSelected = duplicateData.duplicateHypotheses.every(item => item.annotation !== null);
+        // console.log("All selected:", allSelected);
       
-        currentNode.data.isDedupAnnotated = allSelected;
+        // currentNode.data.isDedupAnnotated = allSelected;
 
         console.log(`Node ${currentNode.id} dedup annotation complete:`, allSelected);
 
