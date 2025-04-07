@@ -1443,9 +1443,10 @@
 
       const nextButton = document.getElementById('next-unannotated');
       nextButton.addEventListener('click', () => {
-        const next = allNodesFlat.find(n => {
-          return !(n.cluster in answeredClusters);
-        });
+        const next = allNodesFlat.find(n => n.id !== selectedNode.id && !(n.cluster in answeredClusters));
+        // const next = allNodesFlat.find(n => {
+          // return !(n.cluster in answeredClusters);
+        // });
         if (next) {
           showNodeDetails(next);
           updateClusterHighlights(next.cluster);
