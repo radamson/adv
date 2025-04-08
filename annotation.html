@@ -716,7 +716,7 @@
           // console.log("---------------------------------------------------------------------------------------")
           if (lastSelectedCluster && lastSelectedCluster !== selectedCluster) {
             if (!answeredClusters[lastSelectedCluster]) {
-              resetClusterNodes(lastSelectedCluster);
+              preservedeactivation(lastSelectedCluster, selectedNode.id);
             } else{
               // console.log("PRESERVE DEACTIVATION...")
               preservedeactivation(lastSelectedCluster, selectedNode.id);
@@ -726,7 +726,17 @@
 
           // For the newly selected cluster, reset nodes only if it is not annotated.
           if (!answeredClusters[selectedCluster]) {
-            resetClusterNodes(selectedCluster);
+            // Deactivate all nodes in the cluster first
+            deactivateOtherNodesInCluster(selectedCluster, null);
+
+            // Then activate only the selected node
+            d3.selectAll(".node").each(function(d) {
+              if (d.data.cluster === selectedCluster && d.data.id === selectedNode.id) {
+                d3.select(this)
+                  .classed("active-cluster", true)
+                  .classed("deactivated", false);
+              }
+            });
           }
 
           // Activate the selected node in the current cluster.
@@ -764,33 +774,29 @@
         // Helper function 1: Deactivate all nodes in the same cluster except the current node
         function preservedeactivation(cluster, currentNodeId) {
           d3.selectAll(".node").each(function(d) {
-            // console.log("Checking node:", d.data.id, "while selected node is:", currentNodeId);
-            // console.log(d)
-            if (d.data.cluster !== undefined){
-            if (d.data.cluster === cluster && !d.data.isAnnotated) {
+            if (d.data.cluster !== undefined && d.data.cluster === cluster) {
+              const isAllowed = allowedNodeIDs.has(d.data.id);
+              const isSelected = d.data.id === currentNodeId;
+
               d3.select(this)
-                .classed("active-cluster", false)
-                .classed("deactivated", true);
-            } else if (d.data.cluster === cluster && d.data.isAnnotated) {
-              d3.select(this)
-                .classed("active-cluster", false)
-                .classed("deactivated", false);
+                .classed("active-cluster", isSelected)
+                .classed("deactivated", !isAllowed); 
             }
-          }
           });
         }
+
         // Helper function 1: Deactivate all nodes in the same cluster except the current node
         function deactivateOtherNodesInCluster(cluster, currentNodeId) {
           d3.selectAll(".node").each(function(d) {
-            if (d.data.cluster !== undefined && d.data.cluster === cluster) {
-              if (d.data.id !== currentNodeId) {
-                d3.select(this)
-                  .classed("active-cluster", false)
-                  .classed("deactivated", true);
-              }
+            if (d.data.cluster === cluster && d.data.id !== currentNodeId) {
+              const isAllowed = allowedNodeIDs.has(d.data.id);
+              d3.select(this)
+                .classed("active-cluster", false)
+                .classed("deactivated", !isAllowed); // deactivate only if not allowed
             }
           });
         }
+
 
         // Helper function 2: Reset activation and deactivation for all nodes in the specified cluster
         function resetClusterNodes(cluster) {
@@ -851,30 +857,27 @@
       //   console.log("Annotated counter updated:", totalNodesElem.textContent, annotationTextElem.textContent);
       // }
       function updateAnnotatedCounter() {
-        const total = getTotalNodes();
-        const uniqueClusters = new Set();
-        function collectClusters(node) {
-          if (node && node.data.cluster !== undefined) {
-            uniqueClusters.add(node.data.cluster);
-          }
-          if (node.children) {
-            node.children.forEach(child => collectClusters(child));
-          }
-        }
-        collectClusters(treeData);
+        const totalAllowed = allowedNodeIDs.size;
 
-        // Count only nodes that are fully annotated.
-        const fullyAnnotatedCount = allNodesFlat.filter(node => node.data.isAnnotated && node.data.isDedupAnnotated).length;
-        
+        // Count how many allowed nodes are fully annotated
+        const fullyAnnotatedCount = allNodesFlat.filter(node =>
+          allowedNodeIDs.has(node.id) &&
+          node.data.isAnnotated &&
+          node.data.isDedupAnnotated
+        ).length;
+
         const totalNodesElem = document.getElementById("total-nodes");
         const annotationTextElem = document.getElementById("annotation-text");
-        totalNodesElem.textContent = `Total number of nodes: ${total}`;
-        annotationTextElem.textContent = `Unique nodes annotated: ${fullyAnnotatedCount} / ${uniqueClusters.size}`;
+        totalNodesElem.textContent = `Total allowed nodes: ${totalAllowed}`;
+        annotationTextElem.textContent = `Unique nodes annotated: ${fullyAnnotatedCount} / ${totalAllowed}`;
+
         const progressElem = document.getElementById("annotation-progress");
         progressElem.value = fullyAnnotatedCount;
-        progressElem.max = uniqueClusters.size;
-        // console.log("Annotated counter updated:", totalNodesElem.textContent, annotationTextElem.textContent);
+        progressElem.max = totalAllowed;
+
+        // console.log("Updated progress based on allowedNodeIDs");
       }
+
       
       // function checkIfAnnotated(node, data) {
       //   const reviewExists = data.review && data.review.trim().length > 0;
