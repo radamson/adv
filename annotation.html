@@ -1167,7 +1167,8 @@
         const duplicateHypotheses = getUniqueHypothesesFromCluster(nodeData.cluster, nodeData.id);
 
         if (duplicateHypotheses.length > 0) {
-          const disableRadios = (nodeData.cluster in answeredClusters);
+          // const disableRadios = (nodeData.cluster in answeredClusters);
+          const disableRadios = (nodeData.cluster in answeredClusters) || (!allowedNodeIDs.has(nodeData.id));
           
           html += `<details open style="margin: 10px 0;">
                     <summary style="color: blue; font-weight: bold;">Evaluate Deduplication Results</summary>
