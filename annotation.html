@@ -1063,6 +1063,7 @@
       // }
 
       let duplicateAnnotationsGlobal = {};
+      
       function showNodeDetails(nodeData) {
         if (selectedNode) {
           updateDuplicateAnnotationForCurrentNode(selectedNode);
@@ -1134,8 +1135,10 @@
         }
 
         const duplicateHypotheses = getUniqueHypothesesFromCluster(nodeData.cluster, nodeData.id);
-        
+
         if (duplicateHypotheses.length > 0) {
+          const disableRadios = (nodeData.cluster in answeredClusters);
+          
           html += `<details open style="margin: 10px 0;">
                     <summary style="color: blue; font-weight: bold;">Evaluate Deduplication Results</summary>
                     <p><i>Are the following hypotheses duplicates of the current hypothesis (see above)?</i></p>
@@ -1153,13 +1156,13 @@
             html += `</p>
                       <div class="duplicate-hypotheses">
                         <label class="highlight-green">
-                          <input type="radio" name="dup-hyp-${idx}" value="Duplicate"> Duplicate
+                          <input type="radio" name="dup-hyp-${idx}" value="Duplicate" ${disableRadios ? "disabled" : ""}> Duplicate
                         </label>
                         <label class="highlight-red">
-                          <input type="radio" name="dup-hyp-${idx}" value="Not a duplicate"> Not a duplicate
+                          <input type="radio" name="dup-hyp-${idx}" value="Not a duplicate" ${disableRadios ? "disabled" : ""}> Not a duplicate
                         </label>
                         <label class="highlight-orange">
-                          <input type="radio" name="dup-hyp-${idx}" value="Unsure"> Unsure
+                          <input type="radio" name="dup-hyp-${idx}" value="Unsure" ${disableRadios ? "disabled" : ""}> Unsure
                         </label>
                       </div>`;
             // Expandable section to show node IDs for this hypothesis, expanded by default.
