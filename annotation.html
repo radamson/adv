@@ -337,6 +337,7 @@
       let annotatedNodes = [];
       let answeredClusters = {}; // cluster number -> true if answered
       let clusterMapping = {};   // mapping from node id ("0_0") -> cluster number
+      let allowedNodeIDs = new Set();
       
       // File processing with debug logging
       function handleFiles(files) {
@@ -345,7 +346,26 @@
         let filesProcessed = 0;
         Array.from(files).forEach(file => {
           // console.log("Processing file:", file.name);
-          if (/cluster/i.test(file.name)) {
+          if (/subsample_nodes\.json/.test(file.name)) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              try {
+                const subsampleData = JSON.parse(e.target.result);
+                subsampleData.forEach(entry => {
+                  const id = entry.node_id.replace("node_", "");  // convert "node_3_0" → "3_0"
+                  allowedNodeIDs.add(id);
+                });
+              } catch (err) {
+                console.error("Error parsing subsample_nodes.json:", err);
+              }
+              filesProcessed++;
+              if (filesProcessed === files.length) {
+                buildTreeFromBeliefs();
+              }
+            };
+            reader.readAsText(file);
+          }
+          else if (/cluster/i.test(file.name)) {
             const reader = new FileReader();
             reader.onload = (e) => {
               try {
@@ -509,6 +529,9 @@
         allNodesFlat = [];
         flattenNodes(treeData, allNodesFlat);
         // console.log("Tree built:", treeData);
+        const greyNodes = allNodesFlat.filter(n => !n.data.review).map(n => n.id);
+        console.log("🟦 Grey nodes (no review):", greyNodes);
+
         assignClusters(treeData);
         renderTree();
         updateAnnotatedCounter();
@@ -613,14 +636,18 @@
                         .enter()
                         .append("g")
                         .attr("class", d => {
-                            let cls = `node node-${d.data.id}`;
-                            if (d.data.cluster !== undefined &&
-                                answeredClusters[d.data.cluster] &&
-                                d.data.id !== (selectedNode && selectedNode.id) && !d.data.isAnnotated && !d.data.isDedupAnnotated) {
-                              cls += " deactivated";
-                            }
-                            return cls;
-                          })
+                          let cls = `node node-${d.data.id}`;
+                          const isAllowed = allowedNodeIDs.has(d.data.id);
+                          if (!isAllowed) {
+                            cls += " deactivated";
+                          } else if (d.data.cluster !== undefined &&
+                              answeredClusters[d.data.cluster] &&
+                              d.data.id !== (selectedNode && selectedNode.id) &&
+                              !d.data.isAnnotated && !d.data.isDedupAnnotated) {
+                            cls += " deactivated";
+                          }
+                          return cls;
+                        })
                         .attr("transform", d => `translate(${d.y},${d.x})`)
                         .on("click", (event, d) => {
                           // console.log("Node clicked:", d.data.id, "Cluster:", d.data.cluster);
@@ -1219,6 +1246,8 @@
         let questionsHtml = "";
         if (data.experiment) {
           let disableExp = (nodeData.id === "0_0") || (nodeData.cluster !== undefined && answeredClusters[nodeData.cluster]);
+          const isAllowed = allowedNodeIDs.has(nodeData.id);
+          disableExp = disableExp || !isAllowed;
           questionsHtml += `<div id="exp-questions">
             <h3>Experiment Validity</h3>
             <p>Is the experiment valid?</p>
@@ -1234,6 +1263,8 @@
         }
         if (data.review) {
           let disableContr = (nodeData.id === "0_0") || (nodeData.cluster !== undefined && answeredClusters[nodeData.cluster]);
+          const isAllowed = allowedNodeIDs.has(nodeData.id);
+          disableContr = disableContr || !isAllowed;
           questionsHtml += `<div id="contradiction-questions">
             <h3>Hypothesis Verification</h3>
             <p>Is the hypothesis true or false?</p>
@@ -1446,16 +1477,17 @@
 
       const nextButton = document.getElementById('next-unannotated');
       nextButton.addEventListener('click', () => {
-        const next = allNodesFlat.find(n => n.id !== selectedNode.id && !(n.cluster in answeredClusters));
-        // const next = allNodesFlat.find(n => {
-          // return !(n.cluster in answeredClusters);
-        // });
+        const next = allNodesFlat.find(n =>
+          allowedNodeIDs.has(n.id) &&
+          n.id !== (selectedNode && selectedNode.id) &&
+          !(n.cluster in answeredClusters)
+        );
+
         if (next) {
           showNodeDetails(next);
           updateClusterHighlights(next.cluster);
-          // console.log("Moved to next unannotated node:", next.id);
         } else {
-          alert("All clusters have been annotated!");
+          alert("All allowed nodes have been annotated!");
         }
       });
       
