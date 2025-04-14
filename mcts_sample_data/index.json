@@ -2,5 +2,9 @@
     {
         "name": "GPT 4o, Budget: 30",
         "path": "gpt40"
+    },
+    {
+        "name": "o3, Budget: 30",
+        "path": "o3"
     }
 ]
