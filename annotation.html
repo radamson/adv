@@ -170,6 +170,17 @@
       border-radius: 3px;
       font-size: 14px;
     }
+    .default-experiment {
+      width: 100%;
+      min-height: 500px;       /* adjust height as you like */
+      padding: 15px;
+      background: #fafafa;
+      border-radius: 1px;
+      /* overflow: auto;          scroll if content overflows */
+    }
+    /* .default-experiment pre { */
+      /* min-height: 400px;       ensure the <pre> itself is tall */
+    /* } */
     h1, h2, h3, h4 {
       color: #333;
     }
@@ -436,6 +447,7 @@
       const uploadArea = document.getElementById('upload-area');
       const fileUpload = document.getElementById('file-upload');
       const fileList = document.getElementById('file-list');
+      const detailsContent = document.getElementById('details-content');
       
       uploadArea.addEventListener('click', () => fileUpload.click());
       uploadArea.addEventListener('dragover', (e) => {
@@ -575,6 +587,8 @@
         assignClusters(treeData);
         renderTree();
         updateAnnotatedCounter();
+
+        showDefaultSection();
       }
       
       function assignClusters(node) {
@@ -989,6 +1003,40 @@
         renderTree();
       }
 
+      function showDefaultSection() {
+      // const d = treeData.data;
+      const detailsContent = document.getElementById('details-content');
+      const d = treeData.data;
+      let html = '';
+      if (d.experiment) {
+        html += `<details open>
+                  <summary>Dataset Description and Metadata</summary>
+                  <pre>${d.experiment}</pre>
+                </details>`;
+
+      // if (d.experiment) {
+      //   html += `<details open class="default-experiment">
+      //       <summary style="font-size:1.1em;">Experiment (root)</summary>
+      //       <pre>${d.experiment}</pre>
+      //       </details>`;
+      }
+      html += `
+        <div style="margin:1em 0;">
+          <h3>Annotator Familiarity</h3>
+          ${[1,2,3,4,5].map(i=>
+            `<label style="margin-right:8px;">
+              <input type="radio" name="default-fam" value="${i}"/> ${i}
+            </label>`).join('')}
+          <p class="rubric">1 = Not familiar at all, 5 = Very familiar</p>
+        </div>`;
+      detailsContent.innerHTML = html;
+      detailsContent.querySelectorAll('input[name="default-fam"]')
+        .forEach(rb => rb.addEventListener('change', e=>{
+          treeData.familiarity = e.target.value;
+        }));
+    }
+
+
       let duplicateAnnotationsGlobal = {};
       
       function showNodeDetails(nodeData) {
@@ -1119,24 +1167,24 @@
                   </details>`;
         }
     
-        if (nodeData.id === "0_0") {
-          const storedFamiliarity = nodeData.familiarity || "";
-          html += `
-            <div id="familiarity-section" style="margin-bottom: 1.5em;">
-              <h3>Annotator Familiarity</h3>
-              <p>What is your level of familiarity with this dataset/domain?</p>
-              <div class="familiarity-options" style="margin: 0.5em 0;">
-                ${[1, 2, 3, 4, 5].map(i => `
-                  <label style="margin-right: 1em;">
-                    <input type="radio" name="familiarity" value="${i}" ${storedFamiliarity === String(i) ? "checked" : ""}>
-                    ${i}
-                  </label>
-                `).join(" ")}
-              </div>
-              <p class='rubric'>1 = Not familiar at all, 5 = Very familiar</p>
-            </div>
-          `;
-        }
+        // if (nodeData.id === "0_0") {
+        //   const storedFamiliarity = nodeData.familiarity || "";
+        //   html += `
+        //     <div id="familiarity-section" style="margin-bottom: 1.5em;">
+        //       <h3>Annotator Familiarity</h3>
+        //       <p>What is your level of familiarity with this dataset/domain?</p>
+        //       <div class="familiarity-options" style="margin: 0.5em 0;">
+        //         ${[1, 2, 3, 4, 5].map(i => `
+        //           <label style="margin-right: 1em;">
+        //             <input type="radio" name="familiarity" value="${i}" ${storedFamiliarity === String(i) ? "checked" : ""}>
+        //             ${i}
+        //           </label>
+        //         `).join(" ")}
+        //       </div>
+        //       <p class='rubric'>1 = Not familiar at all, 5 = Very familiar</p>
+        //     </div>
+        //   `;
+        // }
     
         // Review Section
         if (data.review) {
