@@ -16,13 +16,12 @@
       overflow-y: auto;
     }
     details summary {
-    font-size: 18px; /* adjust the value as needed */
-    font-weight: bold; /* make it bold */}
-
-    details {
-    margin-bottom: 2em; /* Adjust the value as needed */
+      font-size: 18px; /* adjust the value as needed */
+      font-weight: bold; /* make it bold */
     }
-
+    details {
+      margin-bottom: 2em; /* Adjust the value as needed */
+    }
     .container {
       display: flex;
       width: 100%;
@@ -34,21 +33,18 @@
       box-sizing: border-box;
       transition: width 0.3s, display 0.3s;
     }
-
     #left-pane {
       display: flex;
       flex-direction: column;
       /* Optionally, set a minimum height if desired */
       min-height: 600px;
     }
-
     /* Let the tree container expand to fill the left pane */
     #tree-container {
       flex: 1;
       width: 100%;
       height: 100%;
     }
-
     /* Ensure the overall page allows full height usage */
     html, body {
       height: 100%;
@@ -269,7 +265,6 @@
     .dup-btn.selected-dup {
       outline: 2px solid black;
     }
-
     /* Download button */
     #download-json {
       margin-top: 10px;
@@ -337,16 +332,6 @@
     </div>
   </div>
   
-  <!-- Download button -->
-  <!-- <div id="action-bar" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
-    <button id="download-json" style="padding: 10px 15px; background-color: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      Download Hypothesis and Experiment Annotations
-    </button>
-    <button id="next-unannotated" style="padding: 10px 15px; background-color: #009688; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      Next Unannotated
-    </button>
-  </div> -->
-
   <div id="action-bar" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
     <button id="download-json" style="padding: 10px 15px; background-color: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer;">
       Download Hypothesis/Experiment Annotations
@@ -358,7 +343,6 @@
       Next Unannotated
     </button>
   </div>
-  
   
   <script type="module">
     import { getStructuredHypothesis } from './structuredHypothesis.js';
@@ -497,7 +481,7 @@
         }
       }
       
-      // Instead of one global reset for the node, we define two functions:
+      // Individual reset functions (no longer used)
       function resetExperimentAnnotationForNode(node) {
         node.experimentValid = null;
         // Remove this node's annotation from the global list
@@ -519,6 +503,26 @@
         showNodeDetails(node);
         updateAnnotatedCounter();
         // console.log(`Hypothesis Validity ${node.id} has been reset.`);
+      }
+      
+      // Global reset function that resets all annotations for a node and updates the progress counter
+      function resetAllAnnotationsForNode(node) {
+        node.experimentValid = null;
+        node.implementationValid = null;
+        node.contradiction = null;
+        // Optionally reset deduplication annotations as well:
+        delete duplicateAnnotationsGlobal[node.id];
+        // Remove this node's annotation from the global list
+        annotatedNodes = annotatedNodes.filter(a => a.node_id !== node.id);
+        if (node.cluster !== undefined) {
+          delete answeredClusters[node.cluster];
+        }
+        // Reset the annotation flags so that the progress counter reflects the change
+        node.data.isAnnotated = false;
+        node.data.isDedupAnnotated = false;
+        showNodeDetails(node);
+        updateAnnotatedCounter(); // Update progress counter after reset
+        renderTree();
       }
       
       function buildTreeFromBeliefs() {
@@ -641,6 +645,7 @@
           structuredHypothesis: structuredHypothesis
         };
       }
+      
       function renderTree() {
         if (!treeData) return;
         d3.select("#tree-container").selectAll("*").remove();
@@ -650,10 +655,7 @@
         const nodeCount = countNodes(treeData);
         const height = Math.max(container.offsetHeight, nodeCount * 20);
 
-
         const margin = { top: 40, right: 90, bottom: 50, left: 90 };
-
-        // Calculate inner dimensions based on the container's size
         const innerWidth = width - margin.left - margin.right;
         const innerHeight = height - margin.top - margin.bottom;
 
@@ -687,7 +689,6 @@
                           let cls = `node node-${d.data.id}`;
                           const isRoot = d.data.id === "0_0";
                           const isAllowed = allowedNodeIDs.has(d.data.id);
-                          
                           if (!isRoot) {
                             if (!isAllowed) {
                               cls += " deactivated";
@@ -700,24 +701,22 @@
                               cls += " deactivated";
                             }
                           }
-
                           return cls;
                         })
                         .attr("transform", d => `translate(${d.y},${d.x})`)
                         .on("click", (event, d) => {
-                          // console.log("Node clicked:", d.data.id, "Cluster:", d.data.cluster);
+                          // When a node is clicked, show its details and update cluster highlights
                           showNodeDetails(d.data);
                           updateClusterHighlights(d.data.cluster);
                         });
 
-        // Example for rendering the node shapes and labels...
         node.append("circle")
             .attr("r", 8)
             .style("fill", d => {
               if (!d.data.data.review) return "#9E9E9E";
               return d.data.data.priorSupportsHypothesis === true ? "#4CAF50" : 
-                    d.data.data.priorSupportsHypothesis === false ? "#F44336" : 
-                    "#2196F3";
+                     d.data.data.priorSupportsHypothesis === false ? "#F44336" : 
+                     "#2196F3";
             });
 
         node.append("text")
@@ -726,7 +725,6 @@
             .attr("text-anchor", d => d.children ? "end" : "start")
             .text(d => `Node_${d.data.level}_${d.data.index}`);
 
-        // Cluster number inside the node
         node.append("text")
             .attr("class", "node-cluster-label")
             .attr("text-anchor", "middle")
@@ -735,130 +733,102 @@
 
         node.append("text")
             .attr("x", 0)
-            .attr("y", -14)  // positioned above the node
+            .attr("y", -14)
             .attr("text-anchor", "middle")
             .attr("font-size", "14px")
-            .attr("fill", "#2E7D32") // green
+            .attr("fill", "#2E7D32")
             .text(d => {
               let annotated = annotatedNodes.some(a => a.node_id === d.data.id);
-
-              // Special case: root node familiarity
               if (d.data.id === "0_0" && treeData.familiarity) {
                 annotated = true;
               }
-
               d.data.isDedupAnnotated = annotated;
               d.data.isAnnotated = annotated;
               return annotated ? "✔" : "";
             });
 
-            d3.select(".node.node-0_0").classed("deactivated", false).classed("active-cluster", false);
-
-
-      }      
+        d3.select(".node.node-0_0").classed("deactivated", false).classed("active-cluster", false);
+      }
       
-        var lastSelectedCluster = null;
-        // var answeredClusters = {}; // This should be defined as appropriate elsewhere in your code
-        // var selectedNode = {};     // This should contain the current selected node's data
-        function updateClusterHighlights(selectedCluster) {
-
-          if (lastSelectedCluster && lastSelectedCluster !== selectedCluster) {
-            if (!answeredClusters[lastSelectedCluster]) {
-              preservedeactivation(lastSelectedCluster, selectedNode.id);
-            } else{
-              // console.log("PRESERVE DEACTIVATION...")
-              preservedeactivation(lastSelectedCluster, selectedNode.id);
-            }
-
+      var lastSelectedCluster = null;
+      function updateClusterHighlights(selectedCluster) {
+        if (lastSelectedCluster && lastSelectedCluster !== selectedCluster) {
+          if (!answeredClusters[lastSelectedCluster]) {
+            preservedeactivation(lastSelectedCluster, selectedNode.id);
+          } else {
+            // console.log("PRESERVE DEACTIVATION...")
+            preservedeactivation(lastSelectedCluster, selectedNode.id);
           }
-
-          // For the newly selected cluster, reset nodes only if it is not annotated.
-          if (!answeredClusters[selectedCluster]) {
-            // Deactivate all nodes in the cluster first
-            deactivateOtherNodesInCluster(selectedCluster, null);
-
-            // Then activate only the selected node
-            d3.selectAll(".node").each(function(d) {
-              if (d.data.cluster === selectedCluster && d.data.id === selectedNode.id && d.data.id !== "0_0") {
-                d3.select(this)
-                  .classed("active-cluster", true)
-                  .classed("deactivated", false);
-              }
-            });
-          }
-
-          // Activate the selected node in the current cluster.
-          d3.selectAll(".node").each(function(d) {
-            if (d.data.id !== "0_0" && d.data.cluster !== undefined && d.data.cluster === selectedCluster) {
-              if (d.data.id === selectedNode.id) {
-                d3.select(this)
-                  .classed("active-cluster", true)
-                  .classed("deactivated", false);
-              }
-            }
-          });
-
-          // Deactivate all other nodes in the current cluster.
-          deactivateOtherNodesInCluster(selectedCluster, selectedNode.id);
-
-          // Update the global state with the current cluster.
-          lastSelectedCluster = selectedCluster;
         }
-
-        function downloadAllDuplicateAnnotations() {
-          // Optionally, update the annotation for the currently visible node before downloading.
-          if (selectedNode) {
-            updateDuplicateAnnotationForCurrentNode(selectedNode);
-          }
-          const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(duplicateAnnotationsGlobal, null, 2));
-          const downloadAnchor = document.createElement("a");
-          downloadAnchor.setAttribute("href", dataStr);
-          downloadAnchor.setAttribute("download", "deduplication_annotations.json");
-          document.body.appendChild(downloadAnchor);
-          downloadAnchor.click();
-          downloadAnchor.remove();
-        }
-
-        // Helper function 1: Deactivate all nodes in the same cluster except the current node
-        function preservedeactivation(cluster, currentNodeId) {
+        if (!answeredClusters[selectedCluster]) {
+          deactivateOtherNodesInCluster(selectedCluster, null);
           d3.selectAll(".node").each(function(d) {
-            if (d.data.cluster !== undefined && d.data.cluster === cluster) {
-              const isAllowed = allowedNodeIDs.has(d.data.id);
-              const isSelected = d.data.id === currentNodeId;
-
+            if (d.data.cluster === selectedCluster && d.data.id === selectedNode.id && d.data.id !== "0_0") {
               d3.select(this)
-                .classed("active-cluster", isSelected)
-                .classed("deactivated", !isAllowed); 
-            }
-          });
-        }
-
-        // Helper function 1: Deactivate all nodes in the same cluster except the current node
-        function deactivateOtherNodesInCluster(cluster, currentNodeId) {
-          d3.selectAll(".node").each(function(d) {
-            if (d.data.cluster === cluster && d.data.id !== currentNodeId) {
-              const isAllowed = allowedNodeIDs.has(d.data.id);
-              d3.select(this)
-                .classed("active-cluster", false)
-                .classed("deactivated", !isAllowed); // deactivate only if not allowed
-            }
-          });
-        }
-
-
-        // Helper function 2: Reset activation and deactivation for all nodes in the specified cluster
-        function resetClusterNodes(cluster) {
-          d3.selectAll(".node").each(function(d) {
-            if (d.data.cluster !== undefined && d.data.cluster === cluster) {
-              d3.select(this)
-                .classed("active-cluster", false)
+                .classed("active-cluster", true)
                 .classed("deactivated", false);
             }
           });
         }
+        d3.selectAll(".node").each(function(d) {
+          if (d.data.id !== "0_0" && d.data.cluster !== undefined && d.data.cluster === selectedCluster) {
+            if (d.data.id === selectedNode.id) {
+              d3.select(this)
+                .classed("active-cluster", true)
+                .classed("deactivated", false);
+            }
+          }
+        });
+        deactivateOtherNodesInCluster(selectedCluster, selectedNode.id);
+        lastSelectedCluster = selectedCluster;
+      }
 
+      function downloadAllDuplicateAnnotations() {
+        if (selectedNode) {
+          updateDuplicateAnnotationForCurrentNode(selectedNode);
+        }
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(duplicateAnnotationsGlobal, null, 2));
+        const downloadAnchor = document.createElement("a");
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", "deduplication_annotations.json");
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+      }
 
-      
+      function preservedeactivation(cluster, currentNodeId) {
+        d3.selectAll(".node").each(function(d) {
+          if (d.data.cluster !== undefined && d.data.cluster === cluster) {
+            const isAllowed = allowedNodeIDs.has(d.data.id);
+            const isSelected = d.data.id === currentNodeId;
+            d3.select(this)
+              .classed("active-cluster", isSelected)
+              .classed("deactivated", !isAllowed); 
+          }
+        });
+      }
+
+      function deactivateOtherNodesInCluster(cluster, currentNodeId) {
+        d3.selectAll(".node").each(function(d) {
+          if (d.data.cluster === cluster && d.data.id !== currentNodeId) {
+            const isAllowed = allowedNodeIDs.has(d.data.id);
+            d3.select(this)
+              .classed("active-cluster", false)
+              .classed("deactivated", !isAllowed);
+          }
+        });
+      }
+
+      function resetClusterNodes(cluster) {
+        d3.selectAll(".node").each(function(d) {
+          if (d.data.cluster !== undefined && d.data.cluster === cluster) {
+            d3.select(this)
+              .classed("active-cluster", false)
+              .classed("deactivated", false);
+          }
+        });
+      }
+
       function countNodes(node) {
         if (!node) return 0;
         let count = 1;
@@ -883,61 +853,43 @@
       
       function updateAnnotatedCounter() {
         const totalAllowed = allowedNodeIDs.size;
-
-        // Count how many allowed nodes are fully annotated
         const fullyAnnotatedCount = allNodesFlat.filter(node =>
           allowedNodeIDs.has(node.id) &&
           node.data.isAnnotated &&
           node.data.isDedupAnnotated
         ).length;
-
         const totalNodesElem = document.getElementById("total-nodes");
         const annotationTextElem = document.getElementById("annotation-text");
         totalNodesElem.textContent = `Total allowed nodes: ${totalAllowed}`;
         annotationTextElem.textContent = `Unique nodes annotated: ${fullyAnnotatedCount} / ${totalAllowed}`;
-
         const progressElem = document.getElementById("annotation-progress");
         progressElem.value = fullyAnnotatedCount;
         progressElem.max = totalAllowed;
-
         // console.log("Updated progress based on allowedNodeIDs");
       }
 
-      
       function saveDuplicateSection(currentNode) {
-          const duplicateData = {
-            currentHypothesis: currentNode.data.hypothesis,
-            duplicateHypotheses: []
-          };
-
-          // Find all duplicate hypothesis items.
-          const dupItems = document.querySelectorAll(".dup-item");
-          dupItems.forEach((item, idx) => {
-          // Get the hypothesis text from the <p> element and remove the numbering and "Exact match" label.
+        const duplicateData = {
+          currentHypothesis: currentNode.data.hypothesis,
+          duplicateHypotheses: []
+        };
+        const dupItems = document.querySelectorAll(".dup-item");
+        dupItems.forEach((item, idx) => {
           const pElem = item.querySelector("p");
           let hypText = pElem ? pElem.innerText : "";
           hypText = hypText.replace(/^\d+\.\s*/, "").replace(/\s*Exact match\s*/i, "").trim();
-
-          // Get the selected annotation (radio button) for this hypothesis.
-          // const selectedRadio = item.querySelector(`input[name="dup-hyp-${idx}"]:checked`);
-          // const annotation = selectedRadio ? selectedRadio.value : null;
           const annotation = item.dataset.answer || null;
-
-          // Get the list of node IDs from the <ul> element.
           let nodeIds = [];
           const ulElem = item.querySelector("ul");
           if (ulElem) {
             nodeIds = Array.from(ulElem.querySelectorAll("li")).map(li => li.innerText.trim());
           }
-
           duplicateData.duplicateHypotheses.push({
             hypothesis: hypText,
             nodeIds: nodeIds,
             annotation: annotation
           });
         });
-
-        // Create and trigger a download for the JSON file.
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(duplicateData, null, 2));
         const downloadAnchor = document.createElement("a");
         downloadAnchor.setAttribute("href", dataStr);
@@ -948,13 +900,9 @@
       }
 
       function getUniqueHypothesesFromCluster(cluster, currentNodeId) {
-        // Filter nodes from the flattened list that are in the same cluster,
-        // exclude the current node, and ensure a hypothesis exists.
         const hypotheses = allNodesFlat
           .filter(node => node.cluster === cluster && node.id !== currentNodeId && node.data.hypothesis)
           .map(node => node.data.hypothesis);
-          
-        // Return only unique hypotheses
         return Array.from(new Set(hypotheses));
       }
 
@@ -964,33 +912,23 @@
           .map(node => node.id);
       }
       
+      // Update deduplication annotations only via explicit user actions (not automatically on node visit)
       function updateDuplicateAnnotationForCurrentNode(currentNode) {
         const duplicateData = {
           currentHypothesis: currentNode.data.hypothesis,
           duplicateHypotheses: []
         };
-
-        // Loop over each duplicate hypothesis item.
         const dupItems = document.querySelectorAll(".dup-item");
         dupItems.forEach((item, idx) => {
           const pElem = item.querySelector("p");
           let hypText = pElem ? pElem.innerText : "";
-          // Remove numbering and the "Exact match" text.
           hypText = hypText.replace(/^\d+\.\s*/, "").replace(/\s*Exact match\s*/i, "").trim();
-
-          // Get the selected annotation from the radio button.
-          // const selectedRadio = item.querySelector(`input[name="dup-hyp-${idx}"]:checked`);
-          // const annotation = selectedRadio ? selectedRadio.value : null;
           const annotation = item.dataset.answer || null;
-
-
-          // Get the list of node IDs (if any).
           let nodeIds = [];
           const ulElem = item.querySelector("ul");
           if (ulElem) {
             nodeIds = Array.from(ulElem.querySelectorAll("li")).map(li => li.innerText.trim());
           }
-
           duplicateData.duplicateHypotheses.push({
             hypothesis: hypText,
             nodeIds: nodeIds,
@@ -999,7 +937,6 @@
         });
         
         let allSelected;
-        // Save/update the global duplicate annotations for this node.
         duplicateAnnotationsGlobal[currentNode.id] = duplicateData;
         
         if (duplicateData.duplicateHypotheses.length === 0) {
@@ -1009,24 +946,16 @@
           console.log("All selected:", allSelected);
         } else {
           console.log("Duplicate hypotheses found...");
-          // Set the flag to true only if every duplicate hypothesis has a non-null annotation.
           allSelected = duplicateData.duplicateHypotheses.every(item => item.annotation !== null);
           currentNode.data.isDedupAnnotated = allSelected;
           console.log("All selected:", allSelected);
         }
-
         console.log(`Node ${currentNode.id} dedup annotation complete:`, allSelected);
-
-        // After updating dedup data, update the overall annotated status.
         checkIfAnnotated(currentNode, currentNode.data);
       }
 
       function checkIfAnnotated(node, data) {
         const reviewExists = data.review && data.review.trim().length > 0;
-        // Only mark the node as annotated if:
-        // 1. Experiment validity is set, and if a review exists, then a contradiction is also set.
-        // 2. And also, the deduplication annotations are complete.
-        
         if (node.experimentValid && (reviewExists ? node.contradiction : true) && node.data.isDedupAnnotated) {
           const annotation = {
             node_id: node.id,
@@ -1050,35 +979,29 @@
               console.log("Cluster", node.cluster, "marked as answered.");
             }
           }
-          // Mark the node as fully annotated.
           node.data.isAnnotated = true;
           console.log(`IF ---> Node ${node.data.id}: isAnnotated = ${node.data.isAnnotated}, isDedupAnnotated = ${node.data.isDedupAnnotated}`);
         } else {
-          // Optionally, you can clear the flag if conditions are not met.
           node.data.isAnnotated = false;
           console.log(`ELSE --> Node ${node.data.id}: isAnnotated = ${node.data.isAnnotated}, isDedupAnnotated = ${node.data.isDedupAnnotated}`);
         }
         updateAnnotatedCounter();
-        
         renderTree();
       }
-
 
       let duplicateAnnotationsGlobal = {};
       
       function showNodeDetails(nodeData) {
-        if (selectedNode && !selectedNode.data.isAnnotated) {
-          updateDuplicateAnnotationForCurrentNode(selectedNode);
-        }
+        // Removed automatic update of deduplication data on node switch
+        // OLD: if (selectedNode && !selectedNode.data.isAnnotated) { updateDuplicateAnnotationForCurrentNode(selectedNode); }
+        
         selectedNode = nodeData;
-        // console.log("Showing details for node:", nodeData.id);
         d3.selectAll(".node").classed("selected", false);
         d3.select(`.node.node-${nodeData.id}`).classed("selected", true);
         const detailsContent = document.getElementById('details-content');
         const data = nodeData.data;
         let html = "";
-
-
+        
         if (!nodeData.humanPrior) {
           const priorPrompt = `
             <h3>Human Prior</h3>
@@ -1090,7 +1013,6 @@
             <button class="unsure" id="prior-unsure">Unsure</button>
           `;
           detailsContent.innerHTML = priorPrompt;
-
           document.getElementById("prior-true").onclick = () => {
             nodeData.humanPrior = "True";
             showNodeDetails(nodeData);
@@ -1112,36 +1034,34 @@
         if (data.hypothesis) {
           html += `<h3>Hypothesis</h3><pre>${data.hypothesis}</pre>`;
         }
-
+        
         const duplicateHypotheses = getUniqueHypothesesFromCluster(nodeData.cluster, nodeData.id);
-
+        // NEW: If no duplicates exist, mark deduplication as already completed.
+        if (duplicateHypotheses.length === 0) {
+          nodeData.data.isDedupAnnotated = true;
+          // Optionally, you might want to call checkIfAnnotated(nodeData, data) here
+          // to update the progress status immediately.
+        }
+        
         if (duplicateHypotheses.length > 0) {
-          // const disableRadios = (nodeData.cluster in answeredClusters);
           const disableRadios = (nodeData.cluster in answeredClusters) || (!allowedNodeIDs.has(nodeData.id));
-          
           html += `<details open style="margin: 10px 0;">
                     <summary style="color: blue; font-weight: bold;">Evaluate Deduplication Results</summary>
                     <p><i>Are the following hypotheses duplicates of the current hypothesis (see above)?</i></p>
                     <div class="duplicate-hypotheses">`;
-                      
           duplicateHypotheses.forEach((hyp, idx) => {
-            // Retrieve node IDs for this hypothesis using the helper function
             const matchingNodeIds = getNodeIdsForHypothesis(nodeData.cluster, hyp, nodeData.id);
             html += `<div class="dup-item" style="margin-bottom: 10px;">`;
-            // Number the hypothesis and make it bold
             html += `<p>${idx + 1}. ${hyp}`;
-            // If the hypothesis exactly matches the current hypothesis, add "Exact match" in green bold.
             if (hyp.trim() === data.hypothesis.trim()) {
               html += ` <span class="highlight-yellow">Exact match</span>`;
             }
-            
             html += `<div class="dup-buttons"> 
                       <button type="button" class="dup-btn" data-answer="Duplicate" ${disableRadios ? "disabled" : ""}>Duplicate</button>
                       <button type="button" class="dup-btn" data-answer="Not a duplicate" ${disableRadios ? "disabled" : ""}>Not a duplicate</button>
                       <button type="button" class="dup-btn" data-answer="Unsure" ${disableRadios ? "disabled" : ""}>Unsure</button>
-                      <button type="button" class="dup-reset" ${disableRadios ? "disabled" : ""}>Reset</button>
+                      <!--<button type="button" class="dup-reset" ${disableRadios ? "disabled" : ""}>Reset</button>-->
                     </div>`;
-            // Expandable section to show node IDs for this hypothesis, expanded by default.
             if (matchingNodeIds.length > 0) {
               html += `<details open style="margin-top: 5px;">
                         <summary style="font-weight: bold;">Show Node IDs</summary>
@@ -1156,14 +1076,11 @@
           });
           html += `   </div>
                   </details>`;
-          // (Optional: You may still include a save button for the current node if desired.)
         }
     
-      
         // Structured Hypothesis Details
         if (data.structuredHypothesis && data.structuredHypothesis.length > 0) {
           const stHypo = data.structuredHypothesis[0];
-
           html += `<details>
               <summary>Structured Hypothesis Details</summary>
               <h4>Variables</h4>
@@ -1185,7 +1102,7 @@
               <p>${stHypo.contexts}</p>
             </details>`;
         }
-
+    
         // Experiment Section
         if (data.experiment) {
           html += `<details open>
@@ -1193,7 +1110,7 @@
                     <pre>${data.experiment}</pre>
                   </details>`;
         }
-
+    
         // Analysis Section
         if (data.analysis) {
           html += `<details open>
@@ -1201,7 +1118,7 @@
                     <pre>${data.analysis}</pre>
                   </details>`;
         }
-
+    
         if (nodeData.id === "0_0") {
           const storedFamiliarity = nodeData.familiarity || "";
           html += `
@@ -1220,23 +1137,23 @@
             </div>
           `;
         }
-
-        // Review Section (collapsed)
+    
+        // Review Section
         if (data.review) {
           html += `<details>
                     <summary>Review</summary>
                     <pre>${data.review}</pre>
                   </details>`;
         }
-
-        // Implementation Section (new, collapsed)
-        // This displays the content coming from "experiment-programmer" if available.
+    
+        // Implementation Section
         if (data.implementation) {
           html += `<details>
                     <summary>Implementation</summary>
                     <pre>${data.implementation}</pre>
                   </details>`;
         }
+    
         let questionsHtml = "";
         if (data.experiment) {
           let disableExp = (nodeData.id === "0_0") || (nodeData.cluster !== undefined && answeredClusters[nodeData.cluster]);
@@ -1249,18 +1166,17 @@
             <button id="experiment-valid-yes" class="yes" ${disableExp ? "disabled" : ""}>Yes</button>
             <button id="experiment-valid-no" class="no" ${disableExp ? "disabled" : ""}>No</button>
             <button id="experiment-valid-unsure" class="unsure" ${disableExp ? "disabled" : ""}>Unsure</button>
-            <button class="reset-experiment reset">Reset</button>
+            <!--<button class="reset-experiment reset">Reset</button>-->
             <p id="experiment-valid-answer"></p>
           </div>`;
-          if (nodeData.experimentValid) {
-            document.getElementById('experiment-valid-answer').textContent = `You selected: ${nodeData.experimentValid}`;
+          const expAnsElem = document.getElementById('experiment-valid-answer');
+          if (expAnsElem && nodeData.experimentValid) {
+            expAnsElem.textContent = `You selected: ${nodeData.experimentValid}`;
           }
         }
-        // Determine if the buttons should be disabled (similar to previous questions).
         let disableImpl = (nodeData.id === "0_0") || (nodeData.cluster !== undefined && answeredClusters[nodeData.cluster]);
-        const isAllowed = allowedNodeIDs.has(nodeData.id);
-        disableImpl = disableImpl || !isAllowed;
-        // Append the Implementation Validation question.
+        const isAllowed2 = allowedNodeIDs.has(nodeData.id);
+        disableImpl = disableImpl || !isAllowed2;
         questionsHtml += `<div id="impl-validation-questions">
           <h3>Implementation Validation</h3>
           <p>Was the experiment faithfully implemented?</p>
@@ -1268,16 +1184,13 @@
           <button id="impl-valid-yes" class="yes" ${disableImpl ? "disabled" : ""}>Yes</button>
           <button id="impl-valid-no" class="no" ${disableImpl ? "disabled" : ""}>No</button>
           <button id="impl-valid-unsure" class="unsure" ${disableImpl ? "disabled" : ""}>Unsure</button>
-          <button class="reset-impl reset" ${disableImpl ? "disabled" : ""}>Reset</button>
+          <!--<button class="reset-impl reset" ${disableImpl ? "disabled" : ""}>Reset</button>-->
           <p id="impl-valid-answer"></p>
         </div>`;
-        if (nodeData.implementationValid) {
-            document.getElementById('impl-validation-questions').textContent = `You selected: ${nodeData.implementationValid}`;
-        }
         if (data.review) {
           let disableContr = (nodeData.id === "0_0") || (nodeData.cluster !== undefined && answeredClusters[nodeData.cluster]);
-          const isAllowed = allowedNodeIDs.has(nodeData.id);
-          disableContr = disableContr || !isAllowed;
+          const isAllowed3 = allowedNodeIDs.has(nodeData.id);
+          disableContr = disableContr || !isAllowed3;
           questionsHtml += `<div id="contradiction-questions">
             <h3>Hypothesis Verification</h3>
             <p>Is the hypothesis true or false?</p>
@@ -1285,17 +1198,22 @@
             <button id="contradiction-yes" class="yes" ${disableContr ? "disabled" : ""}>True</button>
             <button id="contradiction-no" class="no" ${disableContr ? "disabled" : ""}>False</button>
             <button id="contradiction-unsure" class="unsure" ${disableContr ? "disabled" : ""}>Unsure</button>
-            <button class="reset-contradiction reset">Reset</button>
+            <!--<button class="reset-contradiction reset">Reset</button>-->
             <p id="contradiction-answer"></p>
           </div>`;
-          if (nodeData.contradiction) {
-            document.getElementById('contradiction-answer').textContent = `You selected: ${nodeData.contradiction}`;
+          const contrAnsElem = document.getElementById('contradiction-answer');
+          if (contrAnsElem && nodeData.contradiction) {
+            contrAnsElem.textContent = `You selected: ${nodeData.contradiction}`;
           }
         }
-        // }
+        // Add a single Reset All button at the end of the questions section
+        questionsHtml += `<div style="margin-top: 20px;">
+                            <button id="reset-all" class="reset">Reset All</button>
+                          </div>`;
+    
         detailsContent.innerHTML = html + questionsHtml;
-      // }
-        // Attach click listeners for deduplication answer buttons
+        
+        // Attach event listeners for annotator familiarity (for root node)
         if (nodeData.id === "0_0") {
           const radioButtons = detailsContent.querySelectorAll('input[name="familiarity"]');
           radioButtons.forEach(rb => {
@@ -1305,14 +1223,14 @@
             });
           });
         }
-
+    
+        // Attach event listeners for deduplication answer buttons (only update on button click)
         const dupButtons = detailsContent.querySelectorAll('.dup-btn');
         dupButtons.forEach(btn => {
           btn.addEventListener('click', () => {
             const dupItem = btn.closest('.dup-item');
             if (dupItem) {
               dupItem.dataset.answer = btn.getAttribute('data-answer');
-              // Visual feedback: remove any existing 'selected-dup' class and apply it to the clicked button
               const siblingButtons = dupItem.querySelectorAll('.dup-btn');
               siblingButtons.forEach(b => b.classList.remove('selected-dup'));
               btn.classList.add('selected-dup');
@@ -1320,8 +1238,8 @@
             updateDuplicateAnnotationForCurrentNode(nodeData);
           });
         });
-
-        // Attach click listeners for deduplication reset buttons
+    
+        // Attach deduplication reset event listeners (if any exist; these are commented out in the HTML)
         const dupResetButtons = detailsContent.querySelectorAll('.dup-reset');
         dupResetButtons.forEach(btn => {
           btn.addEventListener('click', () => {
@@ -1334,8 +1252,9 @@
             updateDuplicateAnnotationForCurrentNode(nodeData);
           });
         });
-
-        // Attach reset event listeners to the dynamically added reset buttons:
+        
+        // Commented out individual reset button event listeners
+        /*
         const resetExpButton = detailsContent.querySelector('.reset-experiment');
         if (resetExpButton) {
           resetExpButton.addEventListener('click', () => {
@@ -1348,51 +1267,23 @@
             resetContradictionAnnotationForNode(nodeData);
           });
         }
-      // }
-        // Process Structured Hypothesis: Variables and Relationships.
-        if (data.structuredHypothesis && data.structuredHypothesis.length > 0) {
-          const stHypo = data.structuredHypothesis[0];
-          const varTabsContainer = detailsContent.querySelector('.variable-tabs');
-          if (varTabsContainer) {
-            let variables = stHypo.variables.split(',').map(v => v.trim()).filter(v => v.length > 0);
-            const colors = ['#e0f7fa', '#e8f5e9', '#fff3e0', '#f3e5f5', '#e1f5fe'];
-            variables.forEach((v, i) => {
-              let tab = document.createElement('span');
-              tab.textContent = v;
-              tab.className = 'variable-tab';
-              tab.style.backgroundColor = colors[i % colors.length];
-              tab.style.marginRight = "10px";
-              tab.style.marginBottom = "10px";
-              varTabsContainer.appendChild(tab);
-            });
-          }
-          const relTableBody = detailsContent.querySelector('#relationships-table tbody');
-          if (relTableBody) {
-            let relLines = stHypo.relationships.split('\n').filter(line => line.trim().length > 0);
-            relLines.forEach(line => {
-              let cleanedLine = line.replace(/Relationship set \d+:\s*/i, '');
-              let regex = /explanatory:\s*([^;]+);\s*response:\s*([^;]+);\s*relationship:\s*(.+)/i;
-              let match = cleanedLine.match(regex);
-              let tr = document.createElement('tr');
-              if (match) {
-                let tdExp = document.createElement('td');
-                tdExp.textContent = match[1].trim();
-                let tdResp = document.createElement('td');
-                tdResp.textContent = match[2].trim();
-                let tdRel = document.createElement('td');
-                tdRel.textContent = match[3].trim();
-                tr.appendChild(tdExp);
-                tr.appendChild(tdResp);
-                tr.appendChild(tdRel);
-              } else {
-                let td = document.createElement('td');
-                td.textContent = cleanedLine;
-                td.colSpan = 3;
-                tr.appendChild(td);
-              }
-              relTableBody.appendChild(tr);
-            });
-          }
+        const resetImplButton = detailsContent.querySelector('.reset-impl');
+        if (resetImplButton) {
+          resetImplButton.addEventListener('click', () => {
+            nodeData.implementationValid = null;
+            const implAnsElem = detailsContent.querySelector('#impl-valid-answer');
+            if (implAnsElem) { implAnsElem.textContent = ""; }
+            checkIfAnnotated(nodeData, data);
+          });
+        }
+        */
+        
+        // Attach event listener for the new Reset All button
+        const resetAllButton = detailsContent.querySelector('#reset-all');
+        if (resetAllButton) {
+          resetAllButton.addEventListener('click', () => {
+            resetAllAnnotationsForNode(nodeData);
+          });
         }
         
         const expValidYes = document.getElementById('experiment-valid-yes');
@@ -1401,17 +1292,20 @@
         if (expValidYes && expValidNo && expValidUnsure && !expValidYes.disabled) {
           expValidYes.addEventListener('click', () => {
             nodeData.experimentValid = "Yes";
-            document.getElementById('experiment-valid-answer').textContent = "You selected: Yes";
+            const expAnsElem = document.getElementById('experiment-valid-answer');
+            if (expAnsElem) { expAnsElem.textContent = "You selected: Yes"; }
             checkIfAnnotated(nodeData, data);
           });
           expValidNo.addEventListener('click', () => {
             nodeData.experimentValid = "No";
-            document.getElementById('experiment-valid-answer').textContent = "You selected: No";
+            const expAnsElem = document.getElementById('experiment-valid-answer');
+            if (expAnsElem) { expAnsElem.textContent = "You selected: No"; }
             checkIfAnnotated(nodeData, data);
           });
           expValidUnsure.addEventListener('click', () => {
             nodeData.experimentValid = "Unsure";
-            document.getElementById('experiment-valid-answer').textContent = "You selected: Unsure";
+            const expAnsElem = document.getElementById('experiment-valid-answer');
+            if (expAnsElem) { expAnsElem.textContent = "You selected: Unsure"; }
             checkIfAnnotated(nodeData, data);
           });
         }
@@ -1422,49 +1316,44 @@
         if (implValidYes && implValidNo && implValidUnsure) {
           implValidYes.addEventListener('click', () => {
             nodeData.implementationValid = "Yes";
-            document.getElementById('impl-valid-answer').textContent = "You selected: Yes";
+            const implAnsElem = document.getElementById('impl-valid-answer');
+            if (implAnsElem) { implAnsElem.textContent = "You selected: Yes"; }
             checkIfAnnotated(nodeData, data);
           });
           implValidNo.addEventListener('click', () => {
             nodeData.implementationValid = "No";
-            document.getElementById('impl-valid-answer').textContent = "You selected: No";
+            const implAnsElem = document.getElementById('impl-valid-answer');
+            if (implAnsElem) { implAnsElem.textContent = "You selected: No"; }
             checkIfAnnotated(nodeData, data);
           });
           implValidUnsure.addEventListener('click', () => {
             nodeData.implementationValid = "Unsure";
-            document.getElementById('impl-valid-answer').textContent = "You selected: Unsure";
+            const implAnsElem = document.getElementById('impl-valid-answer');
+            if (implAnsElem) { implAnsElem.textContent = "You selected: Unsure"; }
             checkIfAnnotated(nodeData, data);
           });
         }
-
-        // Attach event listener for the reset button for this new question.
-        const resetImplButton = detailsContent.querySelector('.reset-impl');
-        if (resetImplButton) {
-          resetImplButton.addEventListener('click', () => {
-            nodeData.implementationValid = null;
-            document.getElementById('impl-valid-answer').textContent = "";
-            checkIfAnnotated(nodeData, data);
-          });
-        }
-
         const contradictionYes = document.getElementById('contradiction-yes');
         const contradictionNo = document.getElementById('contradiction-no');
         const contradictionUnsure = document.getElementById('contradiction-unsure');
         if (contradictionYes && contradictionNo && contradictionUnsure) {
           contradictionYes.addEventListener('click', () => {
             nodeData.contradiction = "True";
-            document.getElementById('contradiction-answer').textContent = "You selected: True";
+            const contrAnsElem = document.getElementById('contradiction-answer');
+            if (contrAnsElem) { contrAnsElem.textContent = "You selected: True"; }
             checkIfAnnotated(nodeData, data);
           });
           contradictionNo.addEventListener('click', () => {
             nodeData.contradiction = "False";
-            document.getElementById('contradiction-answer').textContent = "You selected: False";
+            const contrAnsElem = document.getElementById('contradiction-answer');
+            if (contrAnsElem) { contrAnsElem.textContent = "You selected: False"; }
             checkIfAnnotated(nodeData, data);
           });
           contradictionUnsure.addEventListener('click', (event) => {
             event.stopPropagation();
             nodeData.contradiction = "Unsure";
-            document.getElementById('contradiction-answer').textContent = "You selected: Unsure";
+            const contrAnsElem = document.getElementById('contradiction-answer');
+            if (contrAnsElem) { contrAnsElem.textContent = "You selected: Unsure"; }
             checkIfAnnotated(nodeData, data);
           });
         }
@@ -1512,7 +1401,7 @@
           // console.log("Right pane set to normal screen.");
         }
       });
-
+    
       const downloadAllDupBtn = document.getElementById('download-all-duplicate-annotations');
       downloadAllDupBtn.addEventListener('click', () => {
         downloadAllDuplicateAnnotations();
@@ -1541,7 +1430,7 @@
         downloadAnchor.remove();
         // console.log("Downloaded JSON.");
       });
-
+    
       const nextButton = document.getElementById('next-unannotated');
       nextButton.addEventListener('click', () => {
         const next = allNodesFlat.find(n =>
@@ -1549,7 +1438,6 @@
           n.id !== (selectedNode && selectedNode.id) &&
           !(n.cluster in answeredClusters)
         );
-
         if (next) {
           showNodeDetails(next);
           updateClusterHighlights(next.cluster);
