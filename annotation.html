@@ -983,7 +983,12 @@
             hypothesis_verification: node.contradiction,
             implementation_validity: node.implementationValid,
             human_prior: node.humanPrior,
-            annotator_familiarity: node.familiarity || null
+            human_prior:   node.humanPrior,
+            human_prior_confidence: node.humanPriorConfidence,
+            // annotator_familiarity: node.familiarity || null
+            ...(node.id === "0_0" && node.familiarity != null
+              ? { annotator_familiarity: node.familiarity }
+              : {})
           };
           if (!annotatedNodes.some(a => a.node_id === node.id)) {
             annotatedNodes.push(annotation);
@@ -1023,6 +1028,42 @@
       html += `
         <div style="margin:1em 0;">
           <h3>Annotator Familiarity</h3>
+          <p>How familiar are you with the dataset and its domain?</p>
+          <div class="rubric">
+          <p>Refer to the following definitions to select the level that best describes your familiarity:
+<br>
+<strong>Not familiar at all:</strong>
+<ul>
+  <li>You have never worked with this dataset or domain.</li>
+  <li>You are unfamiliar with the context, terminology, or typical methods.</li>
+  <li>You will be guessing when evaluating hypotheses or experiments.</li>
+</ul>
+<strong>Slightly familiar:</strong>
+<ul>
+  <li>You have seen this domain or similar data once or twice.</li>
+  <li>You recognize a few key terms but may still feel uncertain.</li>
+  <li>You will depend heavily on provided metadata and descriptions.</li>
+</ul>
+<strong>Moderately familiar:</strong>
+<ul>
+  <li>You have worked with related data or experiments before.</li>
+  <li>You understand most terminology and what constitutes a valid experiment.</li>
+  <li>You might need to look up a couple of concepts but can follow the logic.</li>
+</ul>
+<strong>Very familiar:</strong>
+<ul>
+  <li>You have worked with this domain or similar datasets multiple times.</li>
+  <li>You know the standard methods, quality benchmarks, and common pitfalls.</li>
+  <li>You can assess hypotheses confidently with minimal reference.</li>
+</ul>
+<strong>Expert:</strong>
+<ul>
+  <li>You design or publish research in this exact field.</li>
+  <li>You know every nuance, edge case, and advanced methodology inside out.</li>
+  <li>Your can spot subtle flaws others might miss.</li>
+</ul>
+</p>
+</div>
           ${[1,2,3,4,5].map(i=>
             `<label style="margin-right:8px;">
               <input type="radio" name="default-fam" value="${i}"/> ${i}
@@ -1049,32 +1090,113 @@
         const detailsContent = document.getElementById('details-content');
         const data = nodeData.data;
         let html = "";
-        
-        if (!nodeData.humanPrior) {
+        // at the top of showNodeDetails(nodeData), before building the full details:
+        if (!nodeData.humanPrior || nodeData.humanPriorConfidence == null) {
+          const hasPrior = Boolean(nodeData.humanPrior);
+          const hasConf  = nodeData.humanPriorConfidence != null;
+
           const priorPrompt = `
             <h3>Human Prior</h3>
             <p><strong>Hypothesis:</strong></p>
-            <pre>${data.hypothesis}</pre>
+            <pre>${nodeData.data.hypothesis}</pre>
+
             <p>Before seeing the experiment, do you believe this hypothesis is true?</p>
-            <button class="yes" id="prior-true">True</button>
-            <button class="no" id="prior-false">False</button>
-            <button class="unsure" id="prior-unsure">Unsure</button>
+            
+            <button id="prior-true"  class="yes"    ${hasPrior ? 'disabled' : ''}>True</button>
+            <button id="prior-false" class="no"     ${hasPrior ? 'disabled' : ''}>False</button>
+            <button id="prior-unsure"class="unsure" ${hasPrior ? 'disabled' : ''}>Unsure</button>
+
+            <p style="margin-top:1em;">How confident are you? (1 = not at all, 100 = completely)</p>
+            <input
+              type="range"
+              id="prior-confidence-slider"
+              min="1" max="100"
+              value="${hasConf ? nodeData.humanPriorConfidence : 50}"
+              ${hasConf ? 'disabled' : ''}
+              oninput="document.getElementById('prior-confidence-value').textContent = this.value"
+            />
+            <span id="prior-confidence-value">
+              ${hasConf ? nodeData.humanPriorConfidence : 50}
+            </span>
+
+            <button id="prior-confidence-submit"
+                    style="margin-left:8px;"
+                    ${hasConf ? 'disabled' : ''}>
+              ${hasConf ? 'Confidence Submitted' : 'Submit Confidence'}
+            </button>
           `;
           detailsContent.innerHTML = priorPrompt;
-          document.getElementById("prior-true").onclick = () => {
-            nodeData.humanPrior = "True";
-            showNodeDetails(nodeData);
-          };
-          document.getElementById("prior-false").onclick = () => {
-            nodeData.humanPrior = "False";
-            showNodeDetails(nodeData);
-          };
-          document.getElementById("prior-unsure").onclick = () => {
-            nodeData.humanPrior = "Unsure";
-            showNodeDetails(nodeData);
-          };
+
+          // only attach prior-answer handlers if they haven't answered yet
+          if (!hasPrior) {
+            document.getElementById('prior-true').onclick  = () => { nodeData.humanPrior = 'True';  showNodeDetails(nodeData); };
+            document.getElementById('prior-false').onclick = () => { nodeData.humanPrior = 'False'; showNodeDetails(nodeData); };
+            document.getElementById('prior-unsure').onclick= () => { nodeData.humanPrior = 'Unsure';showNodeDetails(nodeData); };
+          }
+
+          // only attach confidence handler if not yet submitted
+          const confBtn = document.getElementById('prior-confidence-submit');
+          if (!hasConf) {
+            confBtn.addEventListener('click', () => {
+              nodeData.humanPriorConfidence =
+                +document.getElementById('prior-confidence-slider').value;
+              showNodeDetails(nodeData);
+            });
+          }
+
+          // keep panel open until _both_ answered
           return;
-        }
+        }        
+        // if (!nodeData.humanPrior) {
+        //   const priorPrompt = `
+        //     <h3>Human Prior</h3>
+        //     <p><strong>Hypothesis:</strong></p>
+        //     <pre>${data.hypothesis}</pre>
+        //     <p>Before seeing the experiment, do you believe this hypothesis is true?</p>
+        //     <button class="yes" id="prior-true">True</button>
+        //     <button class="no" id="prior-false">False</button>
+        //     <button class="unsure" id="prior-unsure">Unsure</button>
+
+        //     <p>How confident are you in that answer? (1 = not at all, 100 = completely)</p>
+        //     <input
+        //       type="range"
+        //       id="prior-confidence-slider"
+        //       min="1"
+        //       max="100"
+        //       value="50"
+        //       oninput="document.getElementById('prior-confidence-value').textContent = this.value"
+        //     />
+        //     <span id="prior-confidence-value">50</span>
+
+        //     <!-- CONFIDENCE SUBMIT -->
+        //     <button id="prior-confidence-submit" class="fullscreen-toggle" style="margin-left:8px;">
+        //       Submit Confidence
+        //     </button>
+        //   `;
+
+        //   //======================================================================================
+        //   detailsContent.innerHTML = priorPrompt;
+        //   const confBtn = document.getElementById('prior-confidence-submit');
+        //   confBtn.addEventListener('click', () => {
+        //     nodeData.humanPriorConfidence =
+        //       +document.getElementById('prior-confidence-slider').value;
+        //     confBtn.disabled = true;
+        //     confBtn.textContent = 'Confidence Submitted';
+        //   });
+        //   document.getElementById("prior-true").onclick = () => {
+        //     nodeData.humanPrior = "True";
+        //     showNodeDetails(nodeData);
+        //   };
+        //   document.getElementById("prior-false").onclick = () => {
+        //     nodeData.humanPrior = "False";
+        //     showNodeDetails(nodeData);
+        //   };
+        //   document.getElementById("prior-unsure").onclick = () => {
+        //     nodeData.humanPrior = "Unsure";
+        //     showNodeDetails(nodeData);
+        //   };
+        //   return;
+        // }
         
         // Node details header
         html += `<p><strong>Node ID:</strong> ${nodeData.id} | <strong>Cluster:</strong> ${data.cluster !== undefined ? data.cluster : "N/A"}</p>`;
@@ -1449,6 +1571,12 @@
           // console.log("Right pane set to normal screen.");
         }
       });
+      // ── right‐pane full‐width by default ──
+      // detailsPanel.style.width = "100%";
+      // leftPane.style.display = "none";
+      // rightFullScreen = true;
+      // rightFullScreenBtn.textContent = "Normal";
+      
     
       const downloadAllDupBtn = document.getElementById('download-all-duplicate-annotations');
       downloadAllDupBtn.addEventListener('click', () => {
