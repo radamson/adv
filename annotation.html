@@ -1106,11 +1106,11 @@
             <button id="prior-false" class="no"     ${hasPrior ? 'disabled' : ''}>False</button>
             <button id="prior-unsure"class="unsure" ${hasPrior ? 'disabled' : ''}>Unsure</button>
 
-            <p style="margin-top:1em;">How confident are you? (1 = not at all, 100 = completely)</p>
+            <p style="margin-top:1em;">How confident are you? (0 = not at all, 100 = completely)</p>
             <input
               type="range"
               id="prior-confidence-slider"
-              min="1" max="100"
+              min="0" max="100"
               value="${hasConf ? nodeData.humanPriorConfidence : 50}"
               ${hasConf ? 'disabled' : ''}
               oninput="document.getElementById('prior-confidence-value').textContent = this.value"
