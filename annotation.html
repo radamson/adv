@@ -522,6 +522,8 @@
         node.experimentValid = null;
         node.implementationValid = null;
         node.contradiction = null;
+        delete node.hypothesisVerificationConfidence;
+        delete node.expEvidenceSurprisal;
         // Optionally reset deduplication annotations as well:
         delete duplicateAnnotationsGlobal[node.id];
         // Remove this node's annotation from the global list
@@ -582,7 +584,7 @@
         flattenNodes(treeData, allNodesFlat);
         // console.log("Tree built:", treeData);
         const greyNodes = allNodesFlat.filter(n => !n.data.review).map(n => n.id);
-        console.log("🟦 Grey nodes (no review):", greyNodes);
+        // console.log("🟦 Grey nodes (no review):", greyNodes);
 
         assignClusters(treeData);
         renderTree();
@@ -638,10 +640,10 @@
           } else if (msg.name === "experiment_programmer") {
             try {
               const implementationData = JSON.parse(msg.content);
-              console.log(implementationData);
-              console.log("======================================================================================================================================");
+              // console.log(implementationData);
+              // console.log("======================================================================================================================================");
               implementation = implementationData.code;
-              console.log(implementation);
+              // console.log(implementation);
             } catch (e) {
               implementation = msg.content;
             }
@@ -969,8 +971,14 @@
       }
 
       function checkIfAnnotated(node, data) {
+        console.log(
+        `checkIfAnnotated(node=${node.id}) → experimentValid=${node.experimentValid}` +
+        `, contradiction=${node.contradiction}` +
+        `, hypothesisVerificationConfidence=${node.hypothesisVerificationConfidence}`
+      );
         const reviewExists = data.review && data.review.trim().length > 0;
-        if (node.experimentValid && (reviewExists ? node.contradiction : true) && node.data.isDedupAnnotated) {
+        if (node.experimentValid && (reviewExists ? (node.contradiction && (node.hypothesisVerificationConfidence != null) && (node.expEvidenceSurprisal != null)) : true) && node.data.isDedupAnnotated) {
+          console.log(`To be save - hypothesisVerificationConfidence=${node.hypothesisVerificationConfidence}`);
           const annotation = {
             node_id: node.id,
             cluster: node.cluster,
@@ -981,10 +989,12 @@
             implementation: data.implementation,
             experiment_validity: node.experimentValid,
             hypothesis_verification: node.contradiction,
+            hypothesis_verification_confidence: node.hypothesisVerificationConfidence,
             implementation_validity: node.implementationValid,
             human_prior: node.humanPrior,
             human_prior:   node.humanPrior,
             human_prior_confidence: node.humanPriorConfidence,
+            exp_evidence_surprisal: node.expEvidenceSurprisal,
             // annotator_familiarity: node.familiarity || null
             ...(node.id === "0_0" && node.familiarity != null
               ? { annotator_familiarity: node.familiarity }
@@ -992,17 +1002,17 @@
           };
           if (!annotatedNodes.some(a => a.node_id === node.id)) {
             annotatedNodes.push(annotation);
-            console.log("Annotation added for node:", node.id, annotation);
+            // console.log("Annotation added for node:", node.id, annotation);
             if (node.cluster !== undefined) {
               answeredClusters[node.cluster] = true;
-              console.log("Cluster", node.cluster, "marked as answered.");
+              // console.log("Cluster", node.cluster, "marked as answered.");
             }
           }
           node.data.isAnnotated = true;
-          console.log(`IF ---> Node ${node.data.id}: isAnnotated = ${node.data.isAnnotated}, isDedupAnnotated = ${node.data.isDedupAnnotated}`);
+          // console.log(`IF ---> Node ${node.data.id}: isAnnotated = ${node.data.isAnnotated}, isDedupAnnotated = ${node.data.isDedupAnnotated}`);
         } else {
           node.data.isAnnotated = false;
-          console.log(`ELSE --> Node ${node.data.id}: isAnnotated = ${node.data.isAnnotated}, isDedupAnnotated = ${node.data.isDedupAnnotated}`);
+          // console.log(`ELSE --> Node ${node.data.id}: isAnnotated = ${node.data.isAnnotated}, isDedupAnnotated = ${node.data.isDedupAnnotated}`);
         }
         updateAnnotatedCounter();
         renderTree();
@@ -1104,9 +1114,8 @@
             
             <button id="prior-true"  class="yes"    ${hasPrior ? 'disabled' : ''}>True</button>
             <button id="prior-false" class="no"     ${hasPrior ? 'disabled' : ''}>False</button>
-            <button id="prior-unsure"class="unsure" ${hasPrior ? 'disabled' : ''}>Unsure</button>
 
-            <p style="margin-top:1em;">How confident are you? (0 = not at all, 100 = completely)</p>
+            <p style="margin-top:1em;">How confident are you about your guess? (0 = not at all, 100 = completely)</p>
             <input
               type="range"
               id="prior-confidence-slider"
@@ -1131,7 +1140,7 @@
           if (!hasPrior) {
             document.getElementById('prior-true').onclick  = () => { nodeData.humanPrior = 'True';  showNodeDetails(nodeData); };
             document.getElementById('prior-false').onclick = () => { nodeData.humanPrior = 'False'; showNodeDetails(nodeData); };
-            document.getElementById('prior-unsure').onclick= () => { nodeData.humanPrior = 'Unsure';showNodeDetails(nodeData); };
+            // document.getElementById('prior-unsure').onclick= () => { nodeData.humanPrior = 'Unsure';showNodeDetails(nodeData); };
           }
 
           // only attach confidence handler if not yet submitted
@@ -1361,16 +1370,51 @@
           let disableContr = (nodeData.id === "0_0") || (nodeData.cluster !== undefined && answeredClusters[nodeData.cluster]);
           const isAllowed3 = allowedNodeIDs.has(nodeData.id);
           disableContr = disableContr || !isAllowed3;
+          // questionsHtml += `<div id="contradiction-questions">
+          //   <h3>Hypothesis Verification</h3>
+          //   <p>Is the hypothesis true or false?</p>
+          //   <p class='rubric'>Indicate whether you believe the hypothesis is true or false based on the experimental evidence presented. If the experimental evidence appears invalid or inconclusive, you may select 'unsure.'</p>
+          //   <button id="contradiction-yes" class="yes" ${disableContr ? "disabled" : ""}>True</button>
+          //   <button id="contradiction-no" class="no" ${disableContr ? "disabled" : ""}>False</button>
+          //   <button id="contradiction-unsure" class="unsure" ${disableContr ? "disabled" : ""}>Unsure</button>
+          //   <!--<button class="reset-contradiction reset">Reset</button>-->
+          //   <p id="contradiction-answer"></p>
+          // </div>`;
           questionsHtml += `<div id="contradiction-questions">
             <h3>Hypothesis Verification</h3>
             <p>Is the hypothesis true or false?</p>
-            <p class='rubric'>Indicate whether you believe the hypothesis is true or false based on the experimental evidence presented in the node. If the experimental evidence appears invalid or inconclusive, you may select 'unsure.'</p>
-            <button id="contradiction-yes" class="yes" ${disableContr ? "disabled" : ""}>True</button>
-            <button id="contradiction-no" class="no" ${disableContr ? "disabled" : ""}>False</button>
-            <button id="contradiction-unsure" class="unsure" ${disableContr ? "disabled" : ""}>Unsure</button>
-            <!--<button class="reset-contradiction reset">Reset</button>-->
+            <p class='rubric'>…</p>
+            <button id="contradiction-yes" class="yes" …>True</button>
+            <button id="contradiction-no"  class="no"  …>False</button>
+            <button id="contradiction-unsure" class="unsure" …>Unsure</button>
             <p id="contradiction-answer"></p>
+
+            <p style="margin-top:1em;">
+              How confident are you about the hypothesis verification? (0 = not at all, 100 = completely)
+            </p>
+            <input
+              type="range"
+              id="hyp-verify-confidence-slider"
+              min="0" max="100"
+              value="${nodeData.hypothesisVerificationConfidence ?? 50}"
+              oninput="document.getElementById('hyp-verify-confidence-value').textContent = this.value"
+            />
+            <span id="hyp-verify-confidence-value">
+              ${nodeData.hypothesisVerificationConfidence ?? 50}
+            </span>
+            <button id="hyp-verify-confidence-submit" class="fullscreen-toggle" style="margin-left:8px;">
+              Submit Confidence
+            </button>
           </div>`;
+          // ── new surprisal question ──
+          questionsHtml += `<div id="exp-evidence-surprisal-questions" style="margin-top:1em;">
+              <h3>Experimental Evidence Surprisal</h3>
+              <p>Did you find the experimental evidence regarding the hypothesis surprising?</p>
+              <button id="surprisal-yes" class="yes" ${disableContr ? "disabled" : ""}>Yes</button>
+              <button id="surprisal-no"  class="no"  ${disableContr ? "disabled" : ""}>No</button>
+              <p id="surprisal-answer"></p>
+            </div>`;
+          const contradictionYes = document.getElementById('contradiction-yes');
           const contrAnsElem = document.getElementById('contradiction-answer');
           if (contrAnsElem && nodeData.contradiction) {
             contrAnsElem.textContent = `You selected: ${nodeData.contradiction}`;
@@ -1382,6 +1426,21 @@
                           </div>`;
     
         detailsContent.innerHTML = html + questionsHtml;
+        // ── attach surprisal handlers ──
+        const surprisalYes = document.getElementById('surprisal-yes');
+        const surprisalNo  = document.getElementById('surprisal-no');
+        if (surprisalYes && surprisalNo) {
+          surprisalYes.addEventListener('click', () => {
+            nodeData.expEvidenceSurprisal = "Yes";
+            document.getElementById('surprisal-answer').textContent = "You selected: Yes";
+            checkIfAnnotated(nodeData, data);
+          });
+          surprisalNo.addEventListener('click', () => {
+            nodeData.expEvidenceSurprisal = "No";
+            document.getElementById('surprisal-answer').textContent = "You selected: No";
+            checkIfAnnotated(nodeData, data);
+          });
+        }
         
         // Attach event listeners for annotator familiarity (for root node)
         if (nodeData.id === "0_0") {
@@ -1389,7 +1448,7 @@
           radioButtons.forEach(rb => {
             rb.addEventListener('change', () => {
               nodeData.familiarity = rb.value;
-              console.log("📊 Annotator familiarity set to:", nodeData.familiarity);
+              // console.log("📊 Annotator familiarity set to:", nodeData.familiarity);
             });
           });
         }
@@ -1503,29 +1562,57 @@
             checkIfAnnotated(nodeData, data);
           });
         }
+        // submit confidence button
+        // const hvSubmitBtn = document.getElementById('hyp-verify-confidence-submit');
+        // hvSubmitBtn.addEventListener('click', () => {
+        //   nodeData.hypothesisVerificationConfidence =
+        //     +document.getElementById('hyp-verify-confidence-slider').value;
+        //   hvSubmitBtn.disabled = true;
+        //   hvSubmitBtn.textContent = 'Confidence Submitted';
+
+        const hvSubmitBtn = document.getElementById('hyp-verify-confidence-submit');
+        hvSubmitBtn.addEventListener('click', () => {
+          // nodeData.hypothesisVerificationConfidence =
+            // +document.getElementById('hyp-verify-confidence-slider').value;
+        const slider = document.getElementById('hyp-verify-confidence-slider');
+        console.log('▶️ Submit Confidence clicked, slider.value =', slider.value);
+        nodeData.hypothesisVerificationConfidence = +slider.value;
+        hvSubmitBtn.disabled = true;
+        hvSubmitBtn.textContent = 'Confidence Submitted';
+        checkIfAnnotated(nodeData, data);
+       });
         const contradictionYes = document.getElementById('contradiction-yes');
         const contradictionNo = document.getElementById('contradiction-no');
         const contradictionUnsure = document.getElementById('contradiction-unsure');
         if (contradictionYes && contradictionNo && contradictionUnsure) {
           contradictionYes.addEventListener('click', () => {
+            // nodeData.contradiction = "True";
+            // const contrAnsElem = document.getElementById('contradiction-answer');
+            // if (contrAnsElem) { contrAnsElem.textContent = "You selected: True"; }
+            // checkIfAnnotated(nodeData, data);
             nodeData.contradiction = "True";
+            // ← grab slider value here:
+            // const slider = document.getElementById('hyp-verify-confidence-slider');
+            // if (slider) nodeData.hypothesisVerificationConfidence = +slider.value;
             const contrAnsElem = document.getElementById('contradiction-answer');
-            if (contrAnsElem) { contrAnsElem.textContent = "You selected: True"; }
+            if (contrAnsElem) contrAnsElem.textContent = "You selected: True";
             checkIfAnnotated(nodeData, data);
           });
           contradictionNo.addEventListener('click', () => {
             nodeData.contradiction = "False";
+            // const slider = document.getElementById('hyp-verify-confidence-slider');
+            // if (slider) nodeData.hypothesisVerificationConfidence = +slider.value;
             const contrAnsElem = document.getElementById('contradiction-answer');
             if (contrAnsElem) { contrAnsElem.textContent = "You selected: False"; }
             checkIfAnnotated(nodeData, data);
           });
-          contradictionUnsure.addEventListener('click', (event) => {
-            event.stopPropagation();
-            nodeData.contradiction = "Unsure";
-            const contrAnsElem = document.getElementById('contradiction-answer');
-            if (contrAnsElem) { contrAnsElem.textContent = "You selected: Unsure"; }
-            checkIfAnnotated(nodeData, data);
-          });
+          // contradictionUnsure.addEventListener('click', (event) => {
+          //   event.stopPropagation();
+          //   nodeData.contradiction = "Unsure";
+          //   const contrAnsElem = document.getElementById('contradiction-answer');
+          //   if (contrAnsElem) { contrAnsElem.textContent = "You selected: Unsure"; }
+          //   checkIfAnnotated(nodeData, data);
+          // });
         }
       }
       
@@ -1609,6 +1696,10 @@
     
       const nextButton = document.getElementById('next-unannotated');
       nextButton.addEventListener('click', () => {
+        if (selectedNode && document.getElementById('hyp-verify-confidence-slider')) {
+          selectedNode.hypothesisVerificationConfidence =
+          +document.getElementById('hyp-verify-confidence-slider').value;
+      }
         const next = allNodesFlat.find(n =>
           allowedNodeIDs.has(n.id) &&
           n.id !== (selectedNode && selectedNode.id) &&
