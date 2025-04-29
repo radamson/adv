@@ -1383,10 +1383,9 @@
           questionsHtml += `<div id="contradiction-questions">
             <h3>Hypothesis Verification</h3>
             <p>Is the hypothesis true or false?</p>
-            <p class='rubric'>…</p>
+            <p class='rubric'>Indicate whether you believe the hypothesis is true or false based on the experimental evidence presented.</p>
             <button id="contradiction-yes" class="yes" …>True</button>
             <button id="contradiction-no"  class="no"  …>False</button>
-            <button id="contradiction-unsure" class="unsure" …>Unsure</button>
             <p id="contradiction-answer"></p>
 
             <p style="margin-top:1em;">
@@ -1410,6 +1409,7 @@
           questionsHtml += `<div id="exp-evidence-surprisal-questions" style="margin-top:1em;">
               <h3>Experimental Evidence Surprisal</h3>
               <p>Did you find the experimental evidence regarding the hypothesis surprising?</p>
+              <p class='rubric'>Indicate whether the experimental evidence deviated from your expectations based on the hypothesis.</p>
               <button id="surprisal-yes" class="yes" ${disableContr ? "disabled" : ""}>Yes</button>
               <button id="surprisal-no"  class="no"  ${disableContr ? "disabled" : ""}>No</button>
               <p id="surprisal-answer"></p>
@@ -1583,8 +1583,8 @@
        });
         const contradictionYes = document.getElementById('contradiction-yes');
         const contradictionNo = document.getElementById('contradiction-no');
-        const contradictionUnsure = document.getElementById('contradiction-unsure');
-        if (contradictionYes && contradictionNo && contradictionUnsure) {
+
+        if (contradictionYes && contradictionNo) {
           contradictionYes.addEventListener('click', () => {
             // nodeData.contradiction = "True";
             // const contrAnsElem = document.getElementById('contradiction-answer');
@@ -1657,6 +1657,10 @@
           rightFullScreen = false;
           // console.log("Right pane set to normal screen.");
         }
+        // redraw the tree now that the left pane’s back on screen
+        setTimeout(() => {
+          if (treeData) renderTree();
+        }, 100);
       });
       // ── right‐pane full‐width by default ──
       // detailsPanel.style.width = "100%";
