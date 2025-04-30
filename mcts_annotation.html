@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Annotation UI</title>
+  <style>
+    body {
+    font-family: Arial, sans-serif;
+    background-color: #f9f9f9;
+    padding: 20px;
+    font-size: 16px;
+    color: #333;
+    }
+
+    .upload-area {
+    padding: 20px;
+    border: 2px dashed #ccc;
+    background-color: #fff;
+    margin-bottom: 20px;
+    text-align: center;
+    border-radius: 6px;
+    }
+
+    .card {
+    background: #fff;
+    padding: 20px;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 25px;
+    }
+
+    pre {
+    background-color: #f1f1f1;
+    padding: 10px;
+    border-radius: 5px;
+    white-space: pre-wrap;
+    }
+
+    h2 {
+    font-size: 20px;
+    margin-top: 0;
+    }
+
+    h3 {
+    font-size: 18px;
+    margin-bottom: 6px;
+    }
+
+    label {
+    font-weight: bold;
+    display: block;
+    margin: 15px 0 5px;
+    }
+
+    .button-row {
+    margin: 10px 0;
+    }
+
+    .button-row button {
+    padding: 6px 12px;
+    margin-right: 8px;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    }
+
+    button.green {
+    background-color: #4CAF50;
+    color: white;
+    }
+
+    button.red {
+    background-color: #f44336;
+    color: white;
+    }
+
+    button.orange {
+    background-color: #ff9800;
+    color: white;
+    }
+
+    button.grey {
+    background-color: #777;
+    color: white;
+    }
+
+    .rubric {
+    font-size: 14px;
+    font-style: italic;
+    color: #555;
+    margin-top: 4px;
+    }
+
+    input[type="range"] {
+    width: 250px;
+    margin-top: 6px;
+    }
+
+  </style>
+</head>
+<body>
+  <h1>Structured Annotation Interface</h1>
+  <div class="upload-area">
+    <p>Upload your <code>mcts_nodes.json</code> file:</p>
+    <input type="file" id="json-upload">
+  </div>
+
+  <div id="progress"></div>
+  <div id="annotation-container"></div>
+  <div id="controls" class="hidden">
+    <button id="next-node">Next Unannotated Node</button>
+    <button id="download-annotations">Download Annotations</button>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let nodes = [], currentIndex = 1, annotations = {}, datasetFamiliar = false, priorState = {};
+
+    function extract(node, role, key) {
+      const entry = node.messages?.find(m => m.name === role);
+      if (!entry) return '—';
+      try {
+        const obj = JSON.parse(entry.content);
+        return obj[key] || JSON.stringify(obj);
+      } catch {
+        return entry.content;
+      }
+    }
+
+    function renderProgress() {
+      const node = nodes[currentIndex];
+      if (!node) return;
+      $('progress').innerText = `Node ${currentIndex} of ${nodes.length - 1} — Level: ${node.level}, Node: ${node.node_idx}, Parent: ${node.parent_idx ?? '—'}`;
+    }
+
+    function renderFamiliarityForm() {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+            <h2>Annotator Familiarity</h2>
+            <p><strong>How familiar are you with the dataset and its domain?</strong></p>
+            <p><em>Refer to the following definitions to select the level that best describes your familiarity:</em></p>
+
+            <strong>Not familiar at all:</strong>
+            <ul>
+            <li>You have never worked with this dataset or domain.</li>
+            <li>You are unfamiliar with the context, terminology, or typical methods.</li>
+            <li>You will be guessing when evaluating hypotheses or experiments.</li>
+            </ul>
+
+            <strong>Slightly familiar:</strong>
+            <ul>
+            <li>You have seen this domain or similar data once or twice.</li>
+            <li>You recognize a few key terms but may still feel uncertain.</li>
+            <li>You will depend heavily on provided metadata and descriptions.</li>
+            </ul>
+
+            <strong>Moderately familiar:</strong>
+            <ul>
+            <li>You have worked with related data or experiments before.</li>
+            <li>You understand most terminology and what constitutes a valid experiment.</li>
+            <li>You might need to look up a couple of concepts but can follow the logic.</li>
+            </ul>
+
+            <strong>Very familiar:</strong>
+            <ul>
+            <li>You have worked with this domain or similar datasets multiple times.</li>
+            <li>You know the standard methods, quality benchmarks, and common pitfalls.</li>
+            <li>You can assess hypotheses confidently with minimal reference.</li>
+            </ul>
+
+            <strong>Expert:</strong>
+            <ul>
+            <li>You design or publish research in this exact field.</li>
+            <li>You know every nuance, edge case, and advanced methodology inside out.</li>
+            <li>You can spot subtle flaws others might miss.</li>
+            </ul>
+
+            <div style="margin-top: 20px;">
+            <div style="display: flex; gap: 16px; margin-bottom: 10px;">
+                ${[1, 2, 3, 4, 5].map(i =>
+                `<label style="display: flex; align-items: center; gap: 4px;">
+                    <input type="radio" name="familiarity" value="${i}"> ${i}
+                </label>`
+                ).join('')}
+            </div>
+            <p><em>1 = Not familiar at all, 5 = Very familiar</em></p>
+            </div>
+
+
+            <label>Confidence in your familiarity rating (0–100):</label><br>
+            <input type="range" id="familiarity-confidence" min="0" max="100" value="50" oninput="document.getElementById('fam-val').innerText=this.value">
+            <span id="fam-val">50</span><br><br>
+
+            <button onclick="submitFamiliarity()">Submit</button>
+        `;
+        $('annotation-container').innerHTML = '';
+        $('annotation-container').appendChild(div);
+        }
+
+    function submitFamiliarity() {
+    const level = document.querySelector('input[name="familiarity"]:checked')?.value;
+    const confidence = document.getElementById('familiarity-confidence')?.value;
+
+    if (!level || confidence === undefined) {
+        alert('Please select a familiarity level and confidence score.');
+        return;
+    }
+
+    annotations['0_0'] = {
+        node_id: '0_0',
+        familiarity_level: parseInt(level),
+        familiarity_confidence: parseInt(confidence)
+    };
+
+    datasetFamiliar = true;
+    showNext();
+    }
+
+
+    function renderPrior(node) {
+        renderProgress();
+        priorState = {};
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+            <h2>Human Prior</h2>
+            <h3>Hypothesis:</h3>
+            <pre>${node.hypothesis?.hypothesis || '—'}</pre>
+            <p>Do you believe this hypothesis is true?</p>
+            <div class="button-row">
+            <button onclick="priorState.judgment='True'; showConfidence(); showSelection('True');" class="green">True</button>
+            <button onclick="priorState.judgment='False'; showConfidence(); showSelection('False');" class="red">False</button>
+            </div>
+            <p id="prior-selection" style="font-weight: bold; color: #333;"></p>
+            <div class="hidden" id="prior-confidence">
+            <p>Confidence (0–100):</p>
+            <input type="range" id="prior-range" min="0" max="100" value="50" oninput="document.getElementById('prior-val').innerText=this.value">
+            <span id="prior-val">50</span><br>
+            <button onclick="renderFull(${node.level}, ${node.node_idx})" style="margin-top: 10px;">Submit</button>
+            </div>
+        `;
+        $('annotation-container').innerHTML = '';
+        $('annotation-container').appendChild(div);
+        }
+
+    function showSelection(answer) {
+  document.getElementById('prior-selection').innerText = `You selected: ${answer}`;
+}
+
+
+    function showConfidence() {
+      document.getElementById('prior-confidence').classList.remove('hidden');
+    }
+
+    function renderFull(level, node_idx) {
+        const node = nodes.find(n => n.level === level && n.node_idx === node_idx);
+        if (!node) return;
+
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+            <h2>Experiment Annotation</h2>
+
+            <h3>Experiment Plan</h3>
+            <pre>${node.query || '—'}</pre>
+
+            <h3>Analysis</h3>
+            <pre>${extract(node, 'experiment_analyst', 'analysis')}</pre>
+
+            <h3>Review</h3>
+            <pre>${extract(node, 'experiment_reviewer', 'feedback')}</pre>
+
+            <h3>Experiment Validity</h3>
+            <p>Is the experiment valid?</p>
+            <p class="rubric">Evaluate whether the experiment is valid. Consider if it can be implemented with the available data with little or no modification. Also assess whether the experiment plan effectively contributes to confirming the hypothesis.</p>
+            <div class="button-row">
+            <button class="green" onclick="setAnswer('exp_validity','Yes')">Yes</button>
+            <button class="red" onclick="setAnswer('exp_validity','No')">No</button>
+            <button class="orange" onclick="setAnswer('exp_validity','Unsure')">Unsure</button>
+            </div>
+            <p id="exp_validity_answer" class="rubric"></p>
+
+            <h3>Implementation Validation</h3>
+            <p>Was the experiment faithfully implemented?</p>
+            <p class="rubric">Assess whether the experiment was faithfully implemented. The implementation follows the experiment plan without any significant deviations.</p>
+            <div class="button-row">
+            <button class="green" onclick="setAnswer('impl_valid','Yes')">Yes</button>
+            <button class="red" onclick="setAnswer('impl_valid','No')">No</button>
+            <button class="orange" onclick="setAnswer('impl_valid','Unsure')">Unsure</button>
+            </div>
+            <p id="impl_valid_answer" class="rubric"></p>
+
+            <h3>Hypothesis Verification</h3>
+            <p>Is the hypothesis true or false?</p>
+            <p class="rubric">Indicate whether you believe the hypothesis is true or false based on the experimental evidence presented.</p>
+            <div class="button-row">
+            <button class="green" onclick="setAnswer('hypothesis_verdict','True')">True</button>
+            <button class="red" onclick="setAnswer('hypothesis_verdict','False')">False</button>
+            </div>
+            <p id="hypothesis_verdict_answer" class="rubric"></p>
+
+            <p style="margin-top: 1em;">How confident are you about the hypothesis verification? (0 = not at all, 100 = completely)</p>
+            <input type="range" id="conf" min="0" max="100" value="50" oninput="document.getElementById('conf-val').innerText=this.value">
+            <span id="conf-val">50</span><br>
+            <button onclick="alert('Confidence noted');" style="margin-top: 5px;">Submit Confidence</button>
+
+            <h3 style="margin-top: 2em;">Experimental Evidence Surprisal</h3>
+            <p>Did you find the experimental evidence regarding the hypothesis surprising?</p>
+            <p class="rubric">Indicate whether the experimental evidence deviated from your expectations based on the hypothesis.</p>
+            <div class="button-row">
+            <button class="green" onclick="setAnswer('surprised','Yes')">Yes</button>
+            <button class="red" onclick="setAnswer('surprised','No')">No</button>
+            </div>
+            <p id="surprised_answer" class="rubric"></p>
+        `;
+
+        $('annotation-container').innerHTML = '';
+        $('annotation-container').appendChild(div);
+
+        // Pre-initialize current node's annotation object
+        annotations[`${node.level}_${node.node_idx}`] = {
+            node_id: `${node.level}_${node.node_idx}`,
+            prior_judgment: priorState.judgment,
+            prior_confidence: document.getElementById('prior-range')?.value,
+            verification_confidence: document.getElementById('conf')?.value
+        };
+        }
+
+        // Helper function to save answer and update visual feedback
+        function setAnswer(field, value) {
+        const currentNode = nodes[currentIndex];
+        const key = `${currentNode.level}_${currentNode.node_idx}`;
+        annotations[key] = annotations[key] || {};
+        annotations[key][field] = value;
+        const label = {
+            exp_validity: "Experiment Validity",
+            impl_valid: "Implementation Validity",
+            hypothesis_verdict: "Hypothesis Verification",
+            surprised: "Experimental Evidence Surprisal"
+        }[field];
+        document.getElementById(`${field}_answer`).textContent = `You selected: ${value}`;
+        }
+
+
+
+    function showNext() {
+      if (!datasetFamiliar) return renderFamiliarityForm();
+      while (currentIndex < nodes.length && annotations[`${nodes[currentIndex].level}_${nodes[currentIndex].node_idx}`]) {
+        currentIndex++;
+      }
+      if (currentIndex < nodes.length) {
+        renderPrior(nodes[currentIndex]);
+      } else {
+        $('annotation-container').innerHTML = '<p>All nodes have been annotated!</p>';
+        $('progress').innerHTML = '';
+      }
+    }
+
+    function downloadAnnotations() {
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(Object.values(annotations), null, 2));
+      const dl = document.createElement('a');
+      dl.setAttribute('href', dataStr);
+      dl.setAttribute('download', 'annotations.json');
+      dl.click();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      $('json-upload').addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = evt => {
+          nodes = JSON.parse(evt.target.result);
+          $('controls').classList.remove('hidden');
+          currentIndex = 1;
+          renderFamiliarityForm();
+        };
+        reader.readAsText(file);
+      });
+      $('next-node').addEventListener('click', showNext);
+      $('download-annotations').addEventListener('click', downloadAnnotations);
+    });
+  </script>
+</body>
+</html>
