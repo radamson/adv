@@ -254,7 +254,7 @@
             <h2>Human Prior</h2>
             <h3>Hypothesis:</h3>
             <pre>${node.hypothesis?.hypothesis || '—'}</pre>
-            <p>Do you believe this hypothesis is true?</p>
+            <p>Disregard anything that you got to know regarding the dataset during the annotation process so far. What do you think about the following hypothesis?</p>
             <div class="button-row">
             <button onclick="priorState.judgment='True'; showConfidence(); showSelection('True');" class="green">True</button>
             <button onclick="priorState.judgment='False'; showConfidence(); showSelection('False');" class="red">False</button>
@@ -317,8 +317,7 @@
             <h3>Review</h3>
             <pre>${extract(node, 'experiment_reviewer', 'feedback')}</pre>
 
-            <h3>Experiment Validity</h3>
-            <p>Is the experiment valid?</p>
+            <p><b>Is the experiment valid?</b></p>
             <p class="rubric">Evaluate whether the experiment is valid. Consider if it can be implemented with the available data with little or no modification. Also assess whether the experiment plan effectively contributes to confirming the hypothesis.</p>
             <div class="button-row">
             <button class="green" onclick="setAnswer('exp_validity','Yes')">Yes</button>
@@ -327,8 +326,7 @@
             </div>
             <p id="exp_validity_answer" class="rubric"></p>
 
-            <h3>Implementation Validation</h3>
-            <p>Was the experiment faithfully implemented?</p>
+            <p><b>Was the experiment faithfully implemented?</b></p>
             <p class="rubric">Assess whether the experiment was faithfully implemented. The implementation follows the experiment plan without any significant deviations.</p>
             <div class="button-row">
             <button class="green" onclick="setAnswer('impl_valid','Yes')">Yes</button>
@@ -337,9 +335,8 @@
             </div>
             <p id="impl_valid_answer" class="rubric"></p>
 
-            <h3>Hypothesis Verification</h3>
-            <p>Is the hypothesis true or false?</p>
-            <p class="rubric">Indicate whether you believe the hypothesis is true or false based on the experimental evidence presented.</p>
+            <p><b>Is the hypothesis true or false?</b></p>
+            <p class="rubric">Given the experimental evidence (experiment plan, analysis and review) shown above, what do you think about the following hypothesis now?.</p>
             <div class="button-row">
             <button class="green" onclick="setAnswer('hypothesis_verdict','True')">True</button>
             <button class="red" onclick="setAnswer('hypothesis_verdict','False')">False</button>
@@ -351,14 +348,6 @@
             <span id="conf-val">50</span><br>
             <button onclick="submitConfidence()" class="blue" style="margin-top: 5px;">Submit Confidence</button>
 
-            <h3 style="margin-top: 2em;">Experimental Evidence Surprisal</h3>
-            <p>Did you find the experimental evidence regarding the hypothesis surprising?</p>
-            <p class="rubric">Indicate whether the experimental evidence deviated from your expectations based on the hypothesis.</p>
-            <div class="button-row">
-            <button class="green" onclick="setAnswer('surprised','Yes')">Yes</button>
-            <button class="red" onclick="setAnswer('surprised','No')">No</button>
-            </div>
-            <p id="surprised_answer" class="rubric"></p>
         `;
 
         $('annotation-container').innerHTML = '';
