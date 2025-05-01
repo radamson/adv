@@ -130,10 +130,13 @@
             background: #f5f5f5;
             padding: 10px;
             overflow: auto;
-            max-height: 200px;
             border-radius: 4px;
             white-space: pre-wrap;
             word-wrap: break-word;
+            resize: both;  /* Allow both vertical and horizontal resizing */
+            border: 1px solid #ccc;
+            min-height: 50px;  /* Add minimum height for better usability */
+            min-width: 100px;  /* Add minimum width for better usability */
         }
         
         .belief-distribution {
@@ -384,6 +387,24 @@
             svg.call(zoom.transform, initialTransform);
         }
 
+        function getRevisedExperimentDetails(message) {
+            try {
+                // Parse the outer JSON string
+                const contentObj = JSON.parse(message.content);
+                
+                // Extract title and description directly from the parsed object
+                const { title, description } = contentObj;
+                
+                if (title && description) {
+                    return `${title}\n${description}`;
+                }
+                return null;
+            } catch (e) {
+                console.error('Error parsing revision message:', e);
+                return null;
+            }
+        }
+
         function showNodeDetails(node) {
             selectedNode = node;
             d3.selectAll(".node").classed("selected", false);
@@ -401,38 +422,78 @@
             // Extract messages by role
             if (data.messages) {
                 const experimentPlan = data.messages.find(m => m.name === 'user_proxy');
-                const hypothesis = data.messages.find(m => m.name === 'hypothesis_generator');
-                const analysis = data.messages.find(m => m.name === 'experiment_analyst');
+                const revisions = data.messages
+                    .filter(m => m.name === 'experiment_reviser');
                 const review = data.messages.find(m => m.name === 'experiment_reviewer');
+                const lastAnalysis = data.messages
+                    .filter(m => m.name === 'experiment_analyst')
+                    .reverse()[0];
+                const lastCode = data.messages
+                    .filter(m => m.name === 'experiment_programmer')
+                    .reverse()[0];
 
-                if (experimentPlan) {
-                    html += `<h3>Experiment Plan</h3><pre>${experimentPlan.content}</pre>`;
-                }
-
-                if (hypothesis) {
-                    try {
-                        const hypothesisObj = JSON.parse(hypothesis.content);
-                        html += `<h3>Hypothesis</h3><pre>${JSON.stringify(hypothesisObj.hypothesis, null, 2)}</pre>`;
-                    } catch (e) {
-                        html += `<h3>Hypothesis</h3><pre>${hypothesis.content}</pre>`;
+                if (experimentPlan || revisions.length > 0 || lastAnalysis || lastCode) {
+                    html += '<h3>Experiment Plans</h3>';
+                    
+                    // Original experiment plan
+                    if (experimentPlan) {
+                        html += `<div class="experiment-plan original">
+                            <h4>Original Plan</h4>
+                            <pre>${experimentPlan.content}</pre>
+                        </div>`;
                     }
-                }
 
-                if (analysis) {
-                    try {
-                        const analysisObj = JSON.parse(analysis.content);
-                        html += `<h3>Analysis</h3><pre>${analysisObj.analysis}</pre>`;
-                    } catch (e) {
-                        html += `<h3>Analysis</h3><pre>${analysis.content}</pre>`;
+                    // Show all revisions in collapsible sections
+                    if (revisions.length > 0) {
+                        html += '<h4>Revisions</h4>';
+                        revisions.forEach((revision, index) => {
+                            const isLast = index === revisions.length - 1;
+                            const details = getRevisedExperimentDetails(revision);
+                            if (details) {
+                                html += `
+                                    <details ${isLast ? 'open' : ''}>
+                                        <summary>Revision ${index + 1}</summary>
+                                        <pre>${details}</pre>
+                                    </details>
+                                `;
+                            }
+                        });
                     }
-                }
 
-                if (review) {
-                    try {
-                        const reviewObj = JSON.parse(review.content);
-                        html += `<h3>Review</h3><pre>${reviewObj.feedback}</pre>`;
-                    } catch (e) {
-                        html += `<h3>Review</h3><pre>${review.content}</pre>`;
+                    // Show the last analysis if it exists
+                    if (lastAnalysis) {
+                        html += '<h4>Analysis Results</h4>';
+                        try {
+                            const analysisObj = JSON.parse(lastAnalysis.content);
+                            html += `<pre>${analysisObj.analysis}</pre>`;
+                        } catch (e) {
+                            html += `<pre>${lastAnalysis.content}</pre>`;
+                        }
+                    }
+
+                    // Show the review separately if it exists 
+                    if (review) {
+                        html += '<h4>Review Feedback</h4>';
+                        try {
+                            const reviewObj = JSON.parse(review.content);
+                            html += `<pre>${reviewObj.feedback}</pre>`;
+                        } catch (e) {
+                            html += `<pre>${review.content}</pre>`;
+                        }
+                    }
+
+                    // Show the last code if it exists
+                    if (lastCode) {
+                        html += '<h4>Implementation</h4>';
+                        try {
+                            const codeObj = JSON.parse(lastCode.content);
+                            html += `<details>
+                                        <summary>View Code</summary>
+                                        <pre>${codeObj.code}</pre>
+                                    </details>`;
+                        } catch (e) {
+                            html += `<pre>${lastCode.content}</pre>`;
+                        }
                     }
                 }
             }
