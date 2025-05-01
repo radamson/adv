@@ -22,6 +22,19 @@
     border-radius: 6px;
     }
 
+    button.blue {
+      background-color: #126bb3;
+      color: white;
+      padding: 8px 12px;
+      margin-right: 8px;
+      border: none;
+      border-radius: 5px;
+      font-weight:600;
+      cursor: pointer;
+    }
+
+
+
     .card {
     background: #fff;
     padding: 20px;
@@ -110,8 +123,8 @@
   <div id="progress"></div>
   <div id="annotation-container"></div>
   <div id="controls" class="hidden">
-    <button id="next-node">Next Unannotated Node</button>
-    <button id="download-annotations">Download Annotations</button>
+    <button id="next-node" class="blue">Next Unannotated Node</button>
+    <button id="download-annotations" class="blue">Download Annotations</button>
   </div>
 
   <script>
@@ -136,88 +149,100 @@
     }
 
     function renderFamiliarityForm() {
+        const rootNode = nodes.find(n => n.level === 0 && n.node_idx === 0);
+        const experimentPlan = rootNode?.query || '—';
+
         const div = document.createElement('div');
         div.className = 'card';
         div.innerHTML = `
-            <h2>Annotator Familiarity</h2>
-            <p><strong>How familiar are you with the dataset and its domain?</strong></p>
-            <p><em>Refer to the following definitions to select the level that best describes your familiarity:</em></p>
+          <h2>Experiment Plan (Root Node)</h2>
+          <pre>${experimentPlan}</pre>
+
+          <h2>Annotator Familiarity</h2>
+          <p><strong>How familiar are you with the dataset and its domain?</strong></p>
+          <div class="rubric">
+            <p>Refer to the following definitions to select the level that best describes your familiarity:</p>
 
             <strong>Not familiar at all:</strong>
             <ul>
-            <li>You have never worked with this dataset or domain.</li>
-            <li>You are unfamiliar with the context, terminology, or typical methods.</li>
-            <li>You will be guessing when evaluating hypotheses or experiments.</li>
+              <li>You have never worked with this dataset or domain.</li>
+              <li>You are unfamiliar with the context, terminology, or typical methods.</li>
+              <li>You will be guessing when evaluating hypotheses or experiments.</li>
             </ul>
 
             <strong>Slightly familiar:</strong>
             <ul>
-            <li>You have seen this domain or similar data once or twice.</li>
-            <li>You recognize a few key terms but may still feel uncertain.</li>
-            <li>You will depend heavily on provided metadata and descriptions.</li>
+              <li>You have seen this domain or similar data once or twice.</li>
+              <li>You recognize a few key terms but may still feel uncertain.</li>
+              <li>You will depend heavily on provided metadata and descriptions.</li>
             </ul>
 
             <strong>Moderately familiar:</strong>
             <ul>
-            <li>You have worked with related data or experiments before.</li>
-            <li>You understand most terminology and what constitutes a valid experiment.</li>
-            <li>You might need to look up a couple of concepts but can follow the logic.</li>
+              <li>You have worked with related data or experiments before.</li>
+              <li>You understand most terminology and what constitutes a valid experiment.</li>
+              <li>You might need to look up a couple of concepts but can follow the logic.</li>
             </ul>
 
             <strong>Very familiar:</strong>
             <ul>
-            <li>You have worked with this domain or similar datasets multiple times.</li>
-            <li>You know the standard methods, quality benchmarks, and common pitfalls.</li>
-            <li>You can assess hypotheses confidently with minimal reference.</li>
+              <li>You have worked with this domain or similar datasets multiple times.</li>
+              <li>You know the standard methods, quality benchmarks, and common pitfalls.</li>
+              <li>You can assess hypotheses confidently with minimal reference.</li>
             </ul>
 
             <strong>Expert:</strong>
             <ul>
-            <li>You design or publish research in this exact field.</li>
-            <li>You know every nuance, edge case, and advanced methodology inside out.</li>
-            <li>You can spot subtle flaws others might miss.</li>
+              <li>You design or publish research in this exact field.</li>
+              <li>You know every nuance, edge case, and advanced methodology inside out.</li>
+              <li>You can spot subtle flaws others might miss.</li>
             </ul>
+          </div>
 
-            <div style="margin-top: 20px;">
+          <div style="margin-top: 20px;">
             <div style="display: flex; gap: 16px; margin-bottom: 10px;">
-                ${[1, 2, 3, 4, 5].map(i =>
+              ${[1, 2, 3, 4, 5].map(i =>
                 `<label style="display: flex; align-items: center; gap: 4px;">
-                    <input type="radio" name="familiarity" value="${i}"> ${i}
+                  <input type="radio" name="familiarity" value="${i}"> ${i}
                 </label>`
-                ).join('')}
+              ).join('')}
             </div>
             <p><em>1 = Not familiar at all, 5 = Very familiar</em></p>
-            </div>
+          </div>
 
+          <label>Confidence in your familiarity rating (0–100):</label><br>
+          <input type="range" id="familiarity-confidence" min="0" max="100" value="50"
+                oninput="document.getElementById('fam-val').innerText=this.value">
+          <span id="fam-val">50</span><br><br>
 
-            <label>Confidence in your familiarity rating (0–100):</label><br>
-            <input type="range" id="familiarity-confidence" min="0" max="100" value="50" oninput="document.getElementById('fam-val').innerText=this.value">
-            <span id="fam-val">50</span><br><br>
-
-            <button onclick="submitFamiliarity()">Submit</button>
+          <button onclick="submitFamiliarity()" class="blue">Submit</button>
         `;
+
         $('annotation-container').innerHTML = '';
         $('annotation-container').appendChild(div);
+      }
+
+      function submitFamiliarity() {
+        const level = document.querySelector('input[name="familiarity"]:checked')?.value;
+        const confidence = document.getElementById('familiarity-confidence')?.value;
+
+        if (!level || confidence === undefined) {
+          alert('Please select a familiarity level and confidence score.');
+          return;
         }
 
-    function submitFamiliarity() {
-    const level = document.querySelector('input[name="familiarity"]:checked')?.value;
-    const confidence = document.getElementById('familiarity-confidence')?.value;
+        annotations['0_0'] = {
+          node_id: '0_0',
+          familiarity_level: parseInt(level),
+          familiarity_confidence: parseInt(confidence)
+        };
 
-    if (!level || confidence === undefined) {
-        alert('Please select a familiarity level and confidence score.');
-        return;
-    }
+        datasetFamiliar = true;
 
-    annotations['0_0'] = {
-        node_id: '0_0',
-        familiarity_level: parseInt(level),
-        familiarity_confidence: parseInt(confidence)
-    };
+        showNext();
 
-    datasetFamiliar = true;
-    showNext();
-    }
+      }
+
 
 
     function renderPrior(node) {
@@ -239,7 +264,7 @@
             <p>Confidence (0–100):</p>
             <input type="range" id="prior-range" min="0" max="100" value="50" oninput="document.getElementById('prior-val').innerText=this.value">
             <span id="prior-val">50</span><br>
-            <button onclick="renderFull(${node.level}, ${node.node_idx})" style="margin-top: 10px;">Submit</button>
+            <button onclick="submitHumanPrior(${node.level}, ${node.node_idx})" style="margin-top: 10px;" class="blue">Submit</button>
             </div>
         `;
         $('annotation-container').innerHTML = '';
@@ -247,8 +272,27 @@
         }
 
     function showSelection(answer) {
-  document.getElementById('prior-selection').innerText = `You selected: ${answer}`;
-}
+      document.getElementById('prior-selection').innerText = `You selected: ${answer}`;
+    }
+
+      function submitHumanPrior(level, node_idx) {
+        const confidenceInput = document.getElementById('prior-range');
+        const confidenceValue = confidenceInput ? parseInt(confidenceInput.value) : null;
+
+        if (!priorState.judgment || confidenceValue === null || isNaN(confidenceValue)) {
+          alert("Please select True or False and set your confidence before continuing.");
+          return;
+        }
+
+        const key = `${level}_${node_idx}`;
+        annotations[key] = {
+          node_id: key,
+          prior_judgment: priorState.judgment,
+          prior_confidence: confidenceValue
+        };
+
+        renderFull(level, node_idx);
+      }
 
 
     function showConfidence() {
@@ -305,7 +349,7 @@
             <p style="margin-top: 1em;">How confident are you about the hypothesis verification? (0 = not at all, 100 = completely)</p>
             <input type="range" id="conf" min="0" max="100" value="50" oninput="document.getElementById('conf-val').innerText=this.value">
             <span id="conf-val">50</span><br>
-            <button onclick="alert('Confidence noted');" style="margin-top: 5px;">Submit Confidence</button>
+            <button onclick="submitConfidence()" class="blue" style="margin-top: 5px;">Submit Confidence</button>
 
             <h3 style="margin-top: 2em;">Experimental Evidence Surprisal</h3>
             <p>Did you find the experimental evidence regarding the hypothesis surprising?</p>
@@ -329,6 +373,16 @@
         };
         }
 
+        function submitConfidence() {
+          const currentNode = nodes[currentIndex];
+          const key = `${currentNode.level}_${currentNode.node_idx}`;
+          const val = document.getElementById('conf')?.value;
+          if (!val) return alert("Please set a confidence value.");
+          annotations[key].verification_confidence = parseInt(val);
+          alert('Confidence noted');
+        }
+
+
         // Helper function to save answer and update visual feedback
         function setAnswer(field, value) {
         const currentNode = nodes[currentIndex];
@@ -346,18 +400,68 @@
 
 
 
-    function showNext() {
-      if (!datasetFamiliar) return renderFamiliarityForm();
-      while (currentIndex < nodes.length && annotations[`${nodes[currentIndex].level}_${nodes[currentIndex].node_idx}`]) {
-        currentIndex++;
-      }
-      if (currentIndex < nodes.length) {
-        renderPrior(nodes[currentIndex]);
-      } else {
-        $('annotation-container').innerHTML = '<p>All nodes have been annotated!</p>';
-        $('progress').innerHTML = '';
-      }
-    }
+        function showNext() {
+          if (!datasetFamiliar) return renderFamiliarityForm();
+
+          const node = nodes[currentIndex];
+          const key = `${node.level}_${node.node_idx}`;
+
+          // ✅ For all nodes except root, require Human Prior judgment
+          if (!(node.level === 0 && node.node_idx === 0)) {
+            const confidenceInput = document.getElementById('prior-range');
+            const confidenceValue = confidenceInput ? parseInt(confidenceInput.value) : null;
+
+            if (!priorState.judgment || confidenceValue === null || isNaN(confidenceValue)) {
+              alert("Please complete the Human Prior judgment and set your confidence before moving to the next node.");
+              return;
+            }
+
+            // Save to annotation object if not already stored
+            const key = `${node.level}_${node.node_idx}`;
+            annotations[key] = annotations[key] || {};
+            annotations[key].prior_judgment = priorState.judgment;
+            annotations[key].prior_confidence = confidenceValue;
+          }
+
+
+          // ✅ For all nodes except root, require annotation fields
+          if (!(node.level === 0 && node.node_idx === 0)) {
+            const a = annotations[key];
+            if (
+              !a ||
+              !a.exp_validity ||
+              !a.impl_valid ||
+              !a.hypothesis_verdict ||
+              a.verification_confidence === undefined ||
+              !a.surprised
+            ) {
+              alert("Please complete all annotation questions before moving to the next node.");
+              return;
+            }
+          }
+
+          currentIndex++;
+          while (
+            currentIndex < nodes.length &&
+            annotations[`${nodes[currentIndex].level}_${nodes[currentIndex].node_idx}`]
+          ) {
+            currentIndex++;
+          }
+
+          if (currentIndex < nodes.length) {
+            const node = nodes[currentIndex];
+            if (node.level === 0 && node.node_idx === 0) {
+              renderRootExperimentPlan(node);
+            } else {
+              renderPrior(node);
+            }
+          }
+          else {
+            $('annotation-container').innerHTML = '<p>All nodes have been annotated!</p>';
+            $('progress').innerHTML = '';
+          }
+        }
+
 
     function downloadAnnotations() {
       const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(Object.values(annotations), null, 2));
@@ -375,7 +479,7 @@
         reader.onload = evt => {
           nodes = JSON.parse(evt.target.result);
           $('controls').classList.remove('hidden');
-          currentIndex = 1;
+          currentIndex = 0;
           renderFamiliarityForm();
         };
         reader.readAsText(file);
