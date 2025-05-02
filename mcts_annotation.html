@@ -284,6 +284,7 @@
           return;
         }
 
+        priorState.confidence = confidenceValue;
         const key = `${level}_${node_idx}`;
         annotations[key] = {
           node_id: key,
@@ -346,8 +347,9 @@
             <p style="margin-top: 1em;">How confident are you about the hypothesis verification? (0 = not at all, 100 = completely)</p>
             <input type="range" id="conf" min="0" max="100" value="50" oninput="document.getElementById('conf-val').innerText=this.value">
             <span id="conf-val">50</span><br>
-            <button onclick="submitConfidence()" class="blue" style="margin-top: 5px;">Submit Confidence</button>
-
+            <button id="submit-confidence-btn" onclick="submitConfidence()" class="blue" style="margin-top: 5px;">
+              Submit Confidence
+            </button>
         `;
 
         $('annotation-container').innerHTML = '';
@@ -357,7 +359,7 @@
         annotations[`${node.level}_${node.node_idx}`] = {
             node_id: `${node.level}_${node.node_idx}`,
             prior_judgment: priorState.judgment,
-            prior_confidence: document.getElementById('prior-range')?.value,
+            prior_confidence: priorState.confidence,
             verification_confidence: document.getElementById('conf')?.value
         };
         }
@@ -368,7 +370,10 @@
           const val = document.getElementById('conf')?.value;
           if (!val) return alert("Please set a confidence value.");
           annotations[key].verification_confidence = parseInt(val);
-          alert('Confidence noted');
+          // alert('Confidence noted');
+          const btn = document.getElementById('submit-confidence-btn');
+          btn.disabled = true;
+          btn.innerText = 'Submitted';
         }
 
 
@@ -400,7 +405,7 @@
             const confidenceInput = document.getElementById('prior-range');
             const confidenceValue = confidenceInput ? parseInt(confidenceInput.value) : null;
 
-            if (!priorState.judgment || confidenceValue === null || isNaN(confidenceValue)) {
+            if (!priorState.judgment || priorState.confidence == null) {
               alert("Please complete the Human Prior judgment and set your confidence before moving to the next node.");
               return;
             }
@@ -409,20 +414,28 @@
             const key = `${node.level}_${node.node_idx}`;
             annotations[key] = annotations[key] || {};
             annotations[key].prior_judgment = priorState.judgment;
-            annotations[key].prior_confidence = confidenceValue;
+            annotations[key].prior_confidence = priorState.confidence;
           }
 
 
           // ✅ For all nodes except root, require annotation fields
           if (!(node.level === 0 && node.node_idx === 0)) {
             const a = annotations[key];
+            console.log('Annotation object:', a);
+            console.log('!a:', !annotations[key]);
+            console.log('!a.exp_validity:', !a.exp_validity);
+            console.log('!a.impl_valid:', !a.impl_valid);
+            console.log('!a.hypothesis_verdict:', !a.hypothesis_verdict);
+            console.log('a.verification_confidence === undefined:', a.verification_confidence === undefined);
+            console.log('!a.surprised:', !a.surprised);
+            
             if (
               !a ||
               !a.exp_validity ||
               !a.impl_valid ||
               !a.hypothesis_verdict ||
-              a.verification_confidence === undefined ||
-              !a.surprised
+              a.verification_confidence === undefined
+              // !a.surprised
             ) {
               alert("Please complete all annotation questions before moving to the next node.");
               return;
