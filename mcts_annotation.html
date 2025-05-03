@@ -111,6 +111,12 @@
     margin-top: 6px;
     }
 
+    /* Main container and right-pane layout */
+    #main-container { display: flex; align-items: stretch; }
+    #annotation-container { flex: 1; }
+    #right-pane { flex: 0 0 35%; padding-left: 20px; border-left: 1px solid #ccc; }
+
+
   </style>
 </head>
 <body>
@@ -119,11 +125,24 @@
     <p>Upload your <code>mcts_nodes.json</code> file:</p>
     <input type="file" id="json-upload">
   </div>
+  <!-- <button id="view-root" class="blue">View Root Info</button> -->
 
   <div id="progress"></div>
-  <div id="annotation-container"></div>
+  <!-- <div id="annotation-container"></div> -->
+  <!-- <div id="controls" class="hidden"> -->
+    <!-- <button id="next-node" class="blue">Next Unannotated Node</button> -->
+    <!-- <button id="view-root" class="blue hidden">View Root Info</button> -->
+    <!-- <button id="reset-node" class="blue">Reset</button> -->
+    <!-- <button id="download-annotations" class="blue">Download Annotations</button> -->
+  <!-- </div> -->
+  <div id="main-container">
+    <div id="annotation-container"></div>
+    <div id="right-pane"></div>
+  </div>
+
   <div id="controls" class="hidden">
     <button id="next-node" class="blue">Next Unannotated Node</button>
+    <button id="reset-node" class="blue">Reset</button>
     <button id="download-annotations" class="blue">Download Annotations</button>
   </div>
 
@@ -220,6 +239,7 @@
 
         $('annotation-container').innerHTML = '';
         $('annotation-container').appendChild(div);
+        // $('view-root').classList.remove('hidden');
       }
 
       function submitFamiliarity() {
@@ -269,6 +289,8 @@
         `;
         $('annotation-container').innerHTML = '';
         $('annotation-container').appendChild(div);
+        // $('view-root').classList.add('hidden');
+        // $('left-pane').classList.add('hidden');
         }
 
     function showSelection(answer) {
@@ -354,6 +376,8 @@
 
         $('annotation-container').innerHTML = '';
         $('annotation-container').appendChild(div);
+        // $('view-root').classList.add('hidden');
+        // $('left-pane').classList.add('hidden');
 
         // Pre-initialize current node's annotation object
         annotations[`${node.level}_${node.node_idx}`] = {
@@ -473,22 +497,56 @@
       dl.click();
     }
 
+    function resetNode() {
+      const node = nodes[currentIndex];
+      const key = `${node.level}_${node.node_idx}`;
+      delete annotations[key];
+      // Re-render the current node’s form
+      if (node.level === 0 && node.node_idx === 0) {
+        renderFamiliarityForm();
+      } else {
+        renderPrior(node);
+      }
+    }
+
+    function toggleRightPane() {
+      const pane = $('right-pane');
+      pane.classList.toggle('hidden');
+    if (!pane.classList.contains('hidden')) renderRightPaneRoot();
+    }
+
+    function renderRightPaneRoot() {
+      const node = nodes.find(n => n.level === 1 && n.node_idx === 0) || {};
+      $('right-pane').innerHTML = `
+      <h2>Level 1 Node 0 Query</h2>
+      <pre>${node.query || '—'}</pre>
+      `;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       $('json-upload').addEventListener('change', e => {
         const file = e.target.files[0];
         if (!file) return;
+
         const reader = new FileReader();
         reader.onload = evt => {
           nodes = JSON.parse(evt.target.result);
+          // $('controls').classList.remove('hidden');
           $('controls').classList.remove('hidden');
+          renderRightPaneRoot();
+          // $('view-root').classList.remove('hidden');
           currentIndex = 0;
           renderFamiliarityForm();
         };
         reader.readAsText(file);
       });
+
       $('next-node').addEventListener('click', showNext);
+      $('reset-node').addEventListener('click', resetNode);
       $('download-annotations').addEventListener('click', downloadAnnotations);
+      // $('view-root').addEventListener('click', toggleRightPane);
     });
+
   </script>
 </body>
 </html>
