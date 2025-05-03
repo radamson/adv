@@ -387,22 +387,32 @@
                     .attr("transform", `translate(${width/2},${height/2})`);
                 const root = d3.hierarchy(treeData);
                 const maxLevel = d3.max(root.descendants(), d => d.data.level);
-                const minRadius = 40;
+                const minRadius = 0; // Start from center for level 1
                 const maxRadius = Math.min(width, height) / 2 - 40;
-                const levelStep = (maxRadius - minRadius) / (maxLevel === 0 ? 1 : maxLevel);
+                const levelStep = (maxRadius - minRadius) / ((maxLevel - 1) === 0 ? 1 : (maxLevel - 1));
                 const nodesByLevel = d3.group(root.descendants(), d => d.data.level);
+                
                 for (let [level, nodes] of nodesByLevel) {
-                    const r = minRadius + level * levelStep;
+                    if (level === 0) continue; // Skip level 0
+                    const r = (level - 1) * levelStep; // Adjust radius based on level-1
                     const angleStep = 2 * Math.PI / nodes.length;
                     nodes.forEach((d, i) => {
-                        d._r = r;
-                        d._theta = nodes.length === 1 ? 0 : i * angleStep;
-                        d._x = r * Math.cos(d._theta - Math.PI/2);
-                        d._y = r * Math.sin(d._theta - Math.PI/2);
+                        if (level === 1) {
+                            // Place first level node at center
+                            d._x = 0;
+                            d._y = 0;
+                        } else {
+                            d._r = r;
+                            d._theta = nodes.length === 1 ? 0 : i * angleStep;
+                            d._x = r * Math.cos(d._theta - Math.PI/2);
+                            d._y = r * Math.sin(d._theta - Math.PI/2);
+                        }
                     });
                 }
-                for (let level = 0; level <= maxLevel; ++level) {
-                    const r = minRadius + level * levelStep;
+
+                // Draw concentric circles starting from level 2
+                for (let level = 2; level <= maxLevel; ++level) {
+                    const r = (level - 1) * levelStep;
                     g.append("circle")
                         .attr("cx", 0)
                         .attr("cy", 0)
