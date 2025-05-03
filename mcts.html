@@ -552,6 +552,10 @@
                 <p><strong>Value:</strong> ${data.value}</p>
             `;
 
+            if (data.hypothesis && data.hypothesis.hypothesis) {
+                html += `<p><strong>Hypothesis:</strong></p><pre>${data.hypothesis.hypothesis}</pre>`;
+            }
+
             if (data.messages) {
                 const experimentPlan = data.messages.find(m => m.name === 'user_proxy');
                 const revisions = data.messages
