@@ -383,8 +383,24 @@
                     .append("svg")
                     .attr("width", width)
                     .attr("height", height);
+
+                const zoom = d3.zoom()
+                    .scaleExtent([0.1, 3])
+                    .on("zoom", (event) => {
+                        g.attr("transform", event.transform);
+                    });
+
+                svg.call(zoom);
+                
                 const g = svg.append("g")
                     .attr("transform", `translate(${width/2},${height/2})`);
+
+                // Initial zoom transform to center the visualization
+                const initialTransform = d3.zoomIdentity
+                    .translate(width/2, height/2)
+                    .scale(0.9);
+                svg.call(zoom.transform, initialTransform);
+
                 const root = d3.hierarchy(treeData);
                 const maxLevel = d3.max(root.descendants(), d => d.data.level);
                 const minRadius = 0; // Start from center for level 1
