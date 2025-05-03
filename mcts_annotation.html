@@ -22,6 +22,45 @@
     border-radius: 6px;
     }
 
+    #floating-progress {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #fff;
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    font-size: 14px;
+  }
+
+  #annotation-progress-bar {
+    width: 80px;
+    height: 10px;
+    appearance: none;
+  }
+
+  #annotation-progress-bar::-webkit-progress-bar {
+    background-color: #eee;
+    border-radius: 5px;
+  }
+
+  #annotation-progress-bar::-webkit-progress-value {
+    background: linear-gradient(to right, #f44336, #ff9800, #4CAF50);
+    border-radius: 5px;
+  }
+
+  #annotation-progress-bar::-moz-progress-bar {
+    background: linear-gradient(to right, #f44336, #ff9800, #4CAF50);
+    border-radius: 5px;
+  }
+
+
+
     button.blue {
       background-color: #126bb3;
       color: white;
@@ -127,7 +166,16 @@
   </div>
   <!-- <button id="view-root" class="blue">View Root Info</button> -->
 
-  <div id="progress"></div>
+  <div id="floating-progress">
+    <progress id="annotation-progress-bar" value="0" max="1"></progress>
+    <span id="annotation-progress-label">0%</span>
+    <span id="annotation-progress-counter" style="font-size: 12px; color: #666;"></span>
+
+  </div>
+
+  <div id="node-progress-info" style="margin-bottom: 10px; font-weight: bold;"></div>
+
+  
   <!-- <div id="annotation-container"></div> -->
   <!-- <div id="controls" class="hidden"> -->
     <!-- <button id="next-node" class="blue">Next Unannotated Node</button> -->
@@ -161,10 +209,33 @@
       }
     }
 
+    function updateProgressBar() {
+      if (!nodes || nodes.length === 0) return;
+
+      const total = nodes.length;
+      const uniqueAnnotated = Object.keys(annotations).filter(
+        k => annotations[k]?.hypothesis_verdict !== undefined || annotations[k]?.familiarity_level !== undefined
+      ).length;
+
+      const percent = total === 0 ? 0 : Math.round((uniqueAnnotated / total) * 100);
+
+      const bar = $('annotation-progress-bar');
+      const label = $('annotation-progress-label');
+      const counter = $('annotation-progress-counter');
+
+      bar.max = total;
+      bar.value = uniqueAnnotated;
+      label.innerText = `${percent}%`;
+      counter.innerText = `(${uniqueAnnotated} / ${total})`;
+    }
+
+
+
+
     function renderProgress() {
       const node = nodes[currentIndex];
       if (!node) return;
-      $('progress').innerText = `Node ${currentIndex} of ${nodes.length - 1} — Level: ${node.level}, Node: ${node.node_idx}, Parent: ${node.parent_idx ?? '—'}`;
+      $('node-progress-info').innerText = `Node ${currentIndex} of ${nodes.length - 1} — Level: ${node.level}, Node: ${node.node_idx}, Parent: ${node.parent_idx ?? '—'}`;
     }
 
     function renderFamiliarityForm() {
@@ -260,6 +331,8 @@
         datasetFamiliar = true;
 
         showNext();
+        updateProgressBar();
+
 
       }
 
@@ -315,6 +388,8 @@
         };
 
         renderFull(level, node_idx);
+        updateProgressBar();
+
       }
 
 
@@ -359,19 +434,34 @@
             <p id="impl_valid_answer" class="rubric"></p>
 
             <p><b>Is the hypothesis true or false?</b></p>
-            <p class="rubric">Given the experimental evidence (experiment plan, analysis and review) shown above, what do you think about the following hypothesis now?.</p>
+            <p class="rubric">Given the experimental evidence (experiment plan, analysis and review) shown above, what do you think about the following hypothesis now?</p>
             <div class="button-row">
             <button class="green" onclick="setAnswer('hypothesis_verdict','True')">True</button>
             <button class="red" onclick="setAnswer('hypothesis_verdict','False')">False</button>
             </div>
             <p id="hypothesis_verdict_answer" class="rubric"></p>
 
-            <p style="margin-top: 1em;">How confident are you about the hypothesis verification? (0 = not at all, 100 = completely)</p>
-            <input type="range" id="conf" min="0" max="100" value="50" oninput="document.getElementById('conf-val').innerText=this.value">
-            <span id="conf-val">50</span><br>
+            <p style="margin-top: 1em;">What's the probability of the label being <strong>True</strong>?</p>
+            <p class="rubric">
+              Move the slider to express your belief. <br>
+              0 = Definitely False, 0.5 = Unsure, 1 = Definitely True.
+            </p>
+            <input type="range" id="conf" min="0" max="1" step="0.01" value="0.5" 
+       style="width: 300px;" 
+       oninput="document.getElementById('conf-val').innerText=this.value">
+
+<div style="display: flex; justify-content: space-between; width: 300px; margin-top: 4px;">
+  <span>False</span>
+  <span>Unsure</span>
+  <span>True</span>
+</div>
+
+
+            <span id="conf-val">0.5</span><br>
             <button id="submit-confidence-btn" onclick="submitConfidence()" class="blue" style="margin-top: 5px;">
-              Submit Confidence
+              Submit Belief
             </button>
+
         `;
 
         $('annotation-container').innerHTML = '';
@@ -389,16 +479,17 @@
         }
 
         function submitConfidence() {
-          const currentNode = nodes[currentIndex];
-          const key = `${currentNode.level}_${currentNode.node_idx}`;
-          const val = document.getElementById('conf')?.value;
-          if (!val) return alert("Please set a confidence value.");
-          annotations[key].verification_confidence = parseInt(val);
-          // alert('Confidence noted');
-          const btn = document.getElementById('submit-confidence-btn');
-          btn.disabled = true;
-          btn.innerText = 'Submitted';
-        }
+  const currentNode = nodes[currentIndex];
+  const key = `${currentNode.level}_${currentNode.node_idx}`;
+  const val = document.getElementById('conf')?.value;
+  if (val === null || val === undefined) return alert("Please set a value.");
+  annotations[key].verification_confidence = parseFloat(val);
+  const btn = document.getElementById('submit-confidence-btn');
+  btn.disabled = true;
+  btn.innerText = 'Submitted';
+  updateProgressBar();
+}
+
 
 
         // Helper function to save answer and update visual feedback
@@ -507,6 +598,8 @@
       } else {
         renderPrior(node);
       }
+      updateProgressBar();
+
     }
 
     function toggleRightPane() {
@@ -516,9 +609,9 @@
     }
 
     function renderRightPaneRoot() {
-      const node = nodes.find(n => n.level === 1 && n.node_idx === 0) || {};
+      const node = nodes.find(n => n.level === 0 && n.node_idx === 0) || {};
       $('right-pane').innerHTML = `
-      <h2>Level 1 Node 0 Query</h2>
+      <h2>Metadata</h2>
       <pre>${node.query || '—'}</pre>
       `;
     }
@@ -537,6 +630,8 @@
           // $('view-root').classList.remove('hidden');
           currentIndex = 0;
           renderFamiliarityForm();
+          updateProgressBar();
+
         };
         reader.readAsText(file);
       });
