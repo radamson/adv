@@ -616,16 +616,21 @@
 
         const reader = new FileReader();
         reader.onload = evt => {
-          nodes = JSON.parse(evt.target.result);
-          // $('controls').classList.remove('hidden');
+          const rawNodes = JSON.parse(evt.target.result);
+
+          // Remove the level 0 node
+          const filtered = rawNodes.filter(n => !(n.level === 0 && n.node_idx === 0));
+
+          // Decrement level for all remaining nodes
+          nodes = filtered.map(n => ({ ...n, level: n.level - 1 }));
+
           $('controls').classList.remove('hidden');
           renderRightPaneRoot();
-          // $('view-root').classList.remove('hidden');
           currentIndex = 0;
           renderFamiliarityForm();
           updateProgressBar();
-
         };
+
         reader.readAsText(file);
       });
 
