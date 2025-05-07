@@ -199,15 +199,18 @@
     let nodes = [], currentIndex = 1, annotations = {}, datasetFamiliar = false, priorState = {};
 
     function extract(node, role, key) {
-      const entry = node.messages?.find(m => m.name === role);
-      if (!entry) return '—';
+      const entries = node.messages?.filter(m => m.name === role);
+      if (!entries || entries.length === 0) return '—';
+
       try {
-        const obj = JSON.parse(entry.content);
-        return obj[key] || JSON.stringify(obj);
+        const lastEntry = entries[entries.length - 1];  // Get the most recent one
+        const obj = JSON.parse(lastEntry.content);
+        return obj[key] ?? JSON.stringify(obj);  // fallback to full object
       } catch {
-        return entry.content;
+        return entries[entries.length - 1].content;
       }
     }
+
 
     function updateProgressBar() {
       if (!nodes || nodes.length === 0) return;
@@ -377,7 +380,7 @@
 
       function submitHumanPrior(level, node_idx) {
         const confidenceInput = document.getElementById('prior-range');
-        const confidenceValue = confidenceInput ? parseInt(confidenceInput.value) : null;
+        const confidenceValue = confidenceInput ? parseFloat(confidenceInput.value) : null;
 
         if (confidenceValue === null || isNaN(confidenceValue)) {
           alert("Please set your confidence using the slider before continuing.");
@@ -409,11 +412,32 @@
 
         const div = document.createElement('div');
         div.className = 'card';
+
+        let lastExperimentPlan = '—';
+        let planTitle = '';
+        let planDescription = '';
+
+        const lastExperimentPlanEntry = node.messages?.filter(
+          m => m.name === 'user_proxy' || m.name === 'experiment_reviser'
+        ).at(-1);
+
+        if (lastExperimentPlanEntry) {
+          try {
+            const parsed = JSON.parse(lastExperimentPlanEntry.content);
+            planTitle = parsed.title || '';
+            planDescription = parsed.description || JSON.stringify(parsed);
+          } catch {
+            planDescription = lastExperimentPlanEntry.content || '—';
+          }
+        }
+
+
         div.innerHTML = `
             <h2>Experiment Annotation</h2>
 
             <h3>Experiment Plan</h3>
-            <pre>${node.query || '—'}</pre>
+            ${planTitle ? `<p><strong>${planTitle}</strong></p>` : ''}
+            <pre>${planDescription}</pre>
 
             <h3>Analysis</h3>
             <pre>${extract(node, 'experiment_analyst', 'analysis')}</pre>
@@ -467,10 +491,10 @@
 
         // Pre-initialize current node's annotation object
         annotations[`${node.level}_${node.node_idx}`] = {
-            node_id: `${node.level}_${node.node_idx}`,
-            prior_judgment: priorState.judgment,
-            prior_confidence: priorState.confidence,
-            posterior_confidence: document.getElementById('conf')?.value
+          node_id: `${node.level}_${node.node_idx}`,
+          prior_judgment: priorState.judgment,
+          prior_confidence: priorState.confidence
+          // posterior_confidence will be set only after clicking "Submit Belief"
         };
         }
 
