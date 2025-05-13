@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Annotation UI</title>
+  <style>
+    body {
+    font-family: Arial, sans-serif;
+    background-color: #f9f9f9;
+    padding: 20px;
+    font-size: 16px;
+    color: #333;
+    }
+
+    .upload-area {
+    padding: 20px;
+    border: 2px dashed #ccc;
+    background-color: #fff;
+    margin-bottom: 20px;
+    text-align: center;
+    border-radius: 6px;
+    }
+
+    #floating-progress {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #fff;
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    font-size: 14px;
+  }
+
+  #annotation-progress-bar {
+    width: 80px;
+    height: 10px;
+    appearance: none;
+  }
+
+  #annotation-progress-bar::-webkit-progress-bar {
+    background-color: #eee;
+    border-radius: 5px;
+  }
+
+  #annotation-progress-bar::-webkit-progress-value {
+    background: linear-gradient(to right, #f44336, #ff9800, #4CAF50);
+    border-radius: 5px;
+  }
+
+  #annotation-progress-bar::-moz-progress-bar {
+    background: linear-gradient(to right, #f44336, #ff9800, #4CAF50);
+    border-radius: 5px;
+  }
+
+
+
+    button.blue {
+      background-color: #126bb3;
+      color: white;
+      padding: 8px 12px;
+      margin-right: 8px;
+      border: none;
+      border-radius: 5px;
+      font-weight:600;
+      cursor: pointer;
+    }
+
+
+
+    .card {
+    background: #fff;
+    padding: 20px;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 25px;
+    }
+
+    pre {
+    background-color: #f1f1f1;
+    padding: 10px;
+    border-radius: 5px;
+    white-space: pre-wrap;
+    }
+
+    h2 {
+    font-size: 20px;
+    margin-top: 0;
+    }
+
+    h3 {
+    font-size: 18px;
+    margin-bottom: 6px;
+    }
+
+    label {
+    font-weight: bold;
+    display: block;
+    margin: 15px 0 5px;
+    }
+
+    .button-row {
+    margin: 10px 0;
+    }
+
+    .button-row button {
+    padding: 6px 12px;
+    margin-right: 8px;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    }
+
+    button.green {
+    background-color: #4CAF50;
+    color: white;
+    }
+
+    button.red {
+    background-color: #f44336;
+    color: white;
+    }
+
+    button.orange {
+    background-color: #ff9800;
+    color: white;
+    }
+
+    button.grey {
+    background-color: #777;
+    color: white;
+    }
+
+    .rubric {
+    font-size: 14px;
+    font-style: italic;
+    color: #555;
+    margin-top: 4px;
+    }
+
+    input[type="range"] {
+    width: 250px;
+    margin-top: 6px;
+    }
+
+    /* Main container and right-pane layout */
+    #main-container { display: flex; align-items: stretch; }
+    #annotation-container { flex: 1; }
+    #right-pane { flex: 0 0 35%; padding-left: 20px; border-left: 1px solid #ccc; }
+
+
+  </style>
+</head>
+<body>
+  <h1>Structured Annotation Interface</h1>
+  <div class="upload-area">
+    <p>Upload your <code>mcts_nodes.json</code> file:</p>
+    <input type="file" id="json-upload">
+  </div>
+  <!-- <button id="view-root" class="blue">View Root Info</button> -->
+
+  <div id="floating-progress">
+    <progress id="annotation-progress-bar" value="0" max="1"></progress>
+    <span id="annotation-progress-label">0%</span>
+    <span id="annotation-progress-counter" style="font-size: 12px; color: #666;"></span>
+
+  </div>
+
+  <div id="node-progress-info" style="margin-bottom: 10px; font-weight: bold;"></div>
+
+  
+  <!-- <div id="annotation-container"></div> -->
+  <!-- <div id="controls" class="hidden"> -->
+    <!-- <button id="next-node" class="blue">Next Unannotated Node</button> -->
+    <!-- <button id="view-root" class="blue hidden">View Root Info</button> -->
+    <!-- <button id="reset-node" class="blue">Reset</button> -->
+    <!-- <button id="download-annotations" class="blue">Download Annotations</button> -->
+  <!-- </div> -->
+  <div id="main-container">
+    <div id="annotation-container"></div>
+    <div id="right-pane"></div>
+  </div>
+
+  <div id="controls" class="hidden">
+    <button id="next-node" class="blue">Next Unannotated Node</button>
+    <button id="reset-node" class="blue">Reset</button>
+    <button id="download-annotations" class="blue">Download Annotations</button>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let nodes = [], currentIndex = 1, annotations = {}, datasetFamiliar = false, priorState = {};
+
+    function extract(node, role, key) {
+      const entries = node.messages?.filter(m => m.name === role);
+      if (!entries || entries.length === 0) return '—';
+
+      try {
+        const lastEntry = entries[entries.length - 1];  // Get the most recent one
+        const obj = JSON.parse(lastEntry.content);
+        return obj[key] ?? JSON.stringify(obj);  // fallback to full object
+      } catch {
+        return entries[entries.length - 1].content;
+      }
+    }
+
+
+    function updateProgressBar() {
+  if (!nodes || nodes.length === 0) return;
+
+  const total = nodes.filter(n => !(n.level === 0 && n.node_idx === 0)).length;
+
+  const uniqueAnnotated = Object.keys(annotations).filter(k => {
+    if (k === '0_0') return false;
+    const a = annotations[k];
+    return (
+      a?.prior_belief !== undefined &&
+      a?.useful_to_you !== undefined &&
+      a?.useful_to_community !== undefined &&
+      a?.interesting !== undefined
+    );
+  }).length;
+
+  const percent = total === 0 ? 0 : Math.round((uniqueAnnotated / total) * 100);
+
+  const bar = $('annotation-progress-bar');
+  const label = $('annotation-progress-label');
+  const counter = $('annotation-progress-counter');
+
+  bar.max = total;
+  bar.value = uniqueAnnotated;
+  label.innerText = `${percent}%`;
+  counter.innerText = `(${uniqueAnnotated} / ${total})`;
+}
+
+
+
+
+
+    function renderProgress() {
+      const node = nodes[currentIndex];
+      if (!node) return;
+      $('node-progress-info').innerText = `Node ${currentIndex} of ${nodes.length - 1} — Level: ${node.level}, Node: ${node.node_idx}, Parent: ${node.parent_idx ?? '—'}`;
+    }
+
+    function renderFamiliarityForm() {
+        const rootNode = nodes.find(n => n.level === 0 && n.node_idx === 0);
+        const experimentPlan = rootNode?.query || '—';
+
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <h2>Experiment Plan (Root Node)</h2>
+          <pre>${experimentPlan}</pre>
+
+          <h2>Annotator Familiarity</h2>
+          <p><strong>How familiar are you with the dataset and its domain?</strong></p>
+          <div class="rubric">
+            <p>Refer to the following definitions to select the level that best describes your familiarity:</p>
+
+            <strong>Not familiar at all:</strong>
+            <ul>
+              <li>You have never worked with this dataset or domain.</li>
+              <li>You are unfamiliar with the context, terminology, or typical methods.</li>
+              <li>You will be guessing when evaluating hypotheses or experiments.</li>
+            </ul>
+
+            <strong>Slightly familiar:</strong>
+            <ul>
+              <li>You have seen this domain or similar data once or twice.</li>
+              <li>You recognize a few key terms but may still feel uncertain.</li>
+              <li>You will depend heavily on provided metadata and descriptions.</li>
+            </ul>
+
+            <strong>Moderately familiar:</strong>
+            <ul>
+              <li>You have worked with related data or experiments before.</li>
+              <li>You understand most terminology and what constitutes a valid experiment.</li>
+              <li>You might need to look up a couple of concepts but can follow the logic.</li>
+            </ul>
+
+            <strong>Very familiar:</strong>
+            <ul>
+              <li>You have worked with this domain or similar datasets multiple times.</li>
+              <li>You know the standard methods, quality benchmarks, and common pitfalls.</li>
+              <li>You can assess hypotheses confidently with minimal reference.</li>
+            </ul>
+
+            <strong>Expert:</strong>
+            <ul>
+              <li>You design or publish research in this exact field.</li>
+              <li>You know every nuance, edge case, and advanced methodology inside out.</li>
+              <li>You can spot subtle flaws others might miss.</li>
+            </ul>
+          </div>
+
+          <div style="margin-top: 20px;">
+            <div style="display: flex; gap: 16px; margin-bottom: 10px;">
+              ${[1, 2, 3, 4, 5].map(i =>
+                `<label style="display: flex; align-items: center; gap: 4px;">
+                  <input type="radio" name="familiarity" value="${i}"> ${i}
+                </label>`
+              ).join('')}
+            </div>
+            <p><em>1 = Not familiar at all, 5 = Very familiar</em></p>
+          </div>
+
+          <label>Confidence in your familiarity rating (0–100):</label><br>
+          <input type="range" id="familiarity-confidence" min="0" max="100" value="50"
+                oninput="document.getElementById('fam-val').innerText=this.value">
+          <span id="fam-val">50</span><br><br>
+
+          <button onclick="submitFamiliarity()" class="blue">Submit</button>
+        `;
+
+        $('annotation-container').innerHTML = '';
+        $('annotation-container').appendChild(div);
+        // $('view-root').classList.remove('hidden');
+      }
+
+      function submitFamiliarity() {
+        const level = document.querySelector('input[name="familiarity"]:checked')?.value;
+        const confidence = document.getElementById('familiarity-confidence')?.value;
+
+        if (!level || confidence === undefined) {
+          alert('Please select a familiarity level and confidence score.');
+          return;
+        }
+
+        annotations['0_0'] = {
+          node_id: '0_0',
+          familiarity_level: parseInt(level),
+          familiarity_confidence: parseInt(confidence)
+        };
+
+        datasetFamiliar = true;
+
+        showNext();
+        updateProgressBar();
+
+
+      }
+
+
+
+      function renderPrior(node) {
+  renderProgress();
+  priorState = {};
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.innerHTML = `
+    <h2>Human Prior</h2>
+    <h3>Hypothesis:</h3>
+    <pre>${node.hypothesis?.hypothesis || '—'}</pre>
+    <p><b>Disregard anything that you have learnt about the dataset during the annotation process so far. Use the sliders below to record your prior intuitions.</b></p>
+
+    ${renderSlider("prior_belief", "What is your belief about this hypothesis?")}
+    ${renderSlider("useful_to_you", "Could knowing the truth value for this hypothesis be useful to you?")}
+    ${renderSlider("useful_to_community", "Could knowing the truth value for this hypothesis be useful to the scientific community?")}
+    ${renderSlider("interesting", "Do you think this hypothesis is interesting?")}
+
+    <button onclick="submitHumanPrior(${node.level}, ${node.node_idx})" class="blue">Submit</button>
+  `;
+
+  $('annotation-container').innerHTML = '';
+  $('annotation-container').appendChild(div);
+}
+
+function renderSlider(id, label) {
+  return `
+    <label for="${id}">${label}</label>
+    <input type="range" id="${id}" min="0" max="1" step="0.01" value="0.5"
+      oninput="document.getElementById('${id}_val').innerText=this.value"
+      style="width: 300px;">
+    <div style="display: flex; justify-content: space-between; width: 300px; margin-top: 4px;">
+        <span>False</span><span>Unsure</span><span>True</span>
+    </div>
+    <span id="${id}_val">0.5</span><br><br>
+  `;
+}
+
+
+    function showSelection(answer) {
+      document.getElementById('prior-selection').innerText = `You selected: ${answer}`;
+    }
+
+    function submitHumanPrior(level, node_idx) {
+        const keys = ['prior_belief', 'useful_to_you', 'useful_to_community', 'interesting'];
+        const values = {};
+
+        for (const key of keys) {
+            const val = document.getElementById(key)?.value;
+            if (val === null || val === undefined) {
+            alert(`Please set a value for: ${key.replace(/_/g, ' ')}`);
+            return;
+            }
+            values[key] = parseFloat(val);
+        }
+
+        const nodeKey = `${level}_${node_idx}`;
+        annotations[nodeKey] = {
+            node_id: nodeKey,
+            ...values
+        };
+
+        // renderFull(level, node_idx);
+        updateProgressBar();
+        showNext();
+        }
+
+
+
+    function showConfidence() {
+      document.getElementById('prior-confidence').classList.remove('hidden');
+    }
+
+    // function renderFull(level, node_idx) {
+    //     const node = nodes.find(n => n.level === level && n.node_idx === node_idx);
+    //     if (!node) return;
+
+    //     const div = document.createElement('div');
+    //     div.className = 'card';
+
+    //     let lastExperimentPlan = '—';
+    //     let planTitle = '';
+    //     let planDescription = '';
+
+    //     const lastExperimentPlanEntry = node.messages?.filter(
+    //       m => m.name === 'user_proxy' || m.name === 'experiment_reviser'
+    //     ).at(-1);
+
+    //     if (lastExperimentPlanEntry) {
+    //       try {
+    //         const parsed = JSON.parse(lastExperimentPlanEntry.content);
+    //         planTitle = parsed.title || '';
+    //         planDescription = parsed.description || JSON.stringify(parsed);
+    //       } catch {
+    //         planDescription = lastExperimentPlanEntry.content || '—';
+    //       }
+    //     }
+
+
+    //     div.innerHTML = `
+    //         <h2>Experiment Annotation</h2>
+
+    //         <h3>Experiment Plan</h3>
+    //         ${planTitle ? `<p><strong>${planTitle}</strong></p>` : ''}
+    //         <pre>${planDescription}</pre>
+
+    //         <h3>Analysis</h3>
+    //         <pre>${extract(node, 'experiment_analyst', 'analysis')}</pre>
+
+    //         <h3>Review</h3>
+    //         <pre>${extract(node, 'experiment_reviewer', 'feedback')}</pre>
+
+    //         <p><b>Is the experiment valid?</b></p>
+    //         <p class="rubric">Evaluate whether the experiment is valid. Consider if it can be implemented with the available data with little or no modification. Also assess whether the experiment plan effectively contributes to confirming the hypothesis.</p>
+    //         <div class="button-row">
+    //         <button class="green" onclick="setAnswer('exp_validity','Yes')">Yes</button>
+    //         <button class="red" onclick="setAnswer('exp_validity','No')">No</button>
+    //         <button class="orange" onclick="setAnswer('exp_validity','Unsure')">Unsure</button>
+    //         </div>
+    //         <p id="exp_validity_answer" class="rubric"></p>
+
+    //         <p><b>Was the experiment faithfully implemented?</b></p>
+    //         <p class="rubric">Assess whether the experiment was faithfully implemented. The implementation follows the experiment plan without any significant deviations.</p>
+    //         <div class="button-row">
+    //         <button class="green" onclick="setAnswer('impl_valid','Yes')">Yes</button>
+    //         <button class="red" onclick="setAnswer('impl_valid','No')">No</button>
+    //         <button class="orange" onclick="setAnswer('impl_valid','Unsure')">Unsure</button>
+    //         </div>
+    //         <p id="impl_valid_answer" class="rubric"></p>
+
+    //         <h3>Hypothesis</h3>
+    //           <pre>${node.hypothesis?.hypothesis || '—'}</pre>
+    //           <p><b>Given the experimental evidence (experiment plan, analysis and review) shown above, what do you think about the following hypothesis now? (use the slider to indicate your confidence)</b></p>
+    //           <input type="range" id="conf" min="0" max="1" step="0.01" value="0.5" 
+    //             style="width: 300px;" 
+    //             oninput="document.getElementById('conf-val').innerText=this.value">
+
+    //           <div style="display: flex; justify-content: space-between; width: 300px; margin-top: 4px;">
+    //             <span>False</span>
+    //             <span>Unsure</span>
+    //             <span>True</span>
+    //           </div>
+
+    //           <span id="conf-val">0.5</span><br>
+    //           <button id="submit-confidence-btn" onclick="submitConfidence()" class="blue" style="margin-top: 5px;">
+    //             Submit Belief
+    //           </button>
+
+
+    //     `;
+
+    //     $('annotation-container').innerHTML = '';
+    //     $('annotation-container').appendChild(div);
+    //     // $('view-root').classList.add('hidden');
+    //     // $('left-pane').classList.add('hidden');
+
+    //     // Pre-initialize current node's annotation object
+    //     annotations[`${node.level}_${node.node_idx}`] = {
+    //       node_id: `${node.level}_${node.node_idx}`,
+    //       prior_judgment: priorState.judgment,
+    //       prior_confidence: priorState.confidence
+    //       // posterior_confidence will be set only after clicking "Submit Belief"
+    //     };
+    //     }
+
+        function submitConfidence() {
+          const currentNode = nodes[currentIndex];
+          const key = `${currentNode.level}_${currentNode.node_idx}`;
+          const val = document.getElementById('conf')?.value;
+          if (val === null || val === undefined) return alert("Please set a value.");
+          annotations[key].posterior_confidence = parseFloat(val);
+
+          // No longer setting hypothesis_verdict directly
+          const btn = document.getElementById('submit-confidence-btn');
+          btn.disabled = true;
+          btn.innerText = 'Submitted';
+          updateProgressBar();
+        }
+
+
+
+
+        // Helper function to save answer and update visual feedback
+        function setAnswer(field, value) {
+        const currentNode = nodes[currentIndex];
+        const key = `${currentNode.level}_${currentNode.node_idx}`;
+        annotations[key] = annotations[key] || {};
+        annotations[key][field] = value;
+        const label = {
+            exp_validity: "Experiment Validity",
+            impl_valid: "Implementation Validity",
+            hypothesis_verdict: "Hypothesis Verification",
+            surprised: "Experimental Evidence Surprisal"
+        }[field];
+        document.getElementById(`${field}_answer`).textContent = `You selected: ${value}`;
+        }
+
+
+
+        function showNext() {
+          if (!datasetFamiliar) return renderFamiliarityForm();
+
+          const node = nodes[currentIndex];
+          const key = `${node.level}_${node.node_idx}`;
+
+          if (!(node.level === 0 && node.node_idx === 0)) {
+            const key = `${node.level}_${node.node_idx}`;
+            const a = annotations[key];
+
+            if (!a || ['prior_belief', 'useful_to_you', 'useful_to_community', 'interesting'].some(k => a[k] === undefined)) {
+                alert("Please complete the Human Prior confidence step before continuing.");
+                return;
+                }
+          }
+
+
+
+
+          // ✅ For all nodes except root, require annotation fields
+        //   if (!(node.level === 0 && node.node_idx === 0)) {
+        //     const a = annotations[key];
+        //     console.log('Annotation object:', a);
+        //     console.log('!a:', !annotations[key]);
+        //     console.log('!a.exp_validity:', !a.exp_validity);
+        //     console.log('!a.impl_valid:', !a.impl_valid);
+        //     console.log('!a.hypothesis_verdict:', !a.hypothesis_verdict);
+        //     console.log('a.posterior_confidence === undefined:', a.posterior_confidence === undefined);
+        //     console.log('!a.surprised:', !a.surprised);
+            
+        //     if (
+        //       !a ||
+        //       !a.exp_validity ||
+        //       !a.impl_valid ||
+        //       a.posterior_confidence === undefined
+        //       // !a.surprised
+        //     ) {
+        //       alert("Please complete all annotation questions before moving to the next node.");
+        //       return;
+        //     }
+        //   }
+
+          currentIndex++;
+          while (
+            currentIndex < nodes.length &&
+            annotations[`${nodes[currentIndex].level}_${nodes[currentIndex].node_idx}`]
+          ) {
+            currentIndex++;
+          }
+
+          if (currentIndex < nodes.length) {
+            const node = nodes[currentIndex];
+            if (node.level === 0 && node.node_idx === 0) {
+              renderRootExperimentPlan(node);
+            } else {
+              renderPrior(node);
+            }
+          }
+          else {
+            $('annotation-container').innerHTML = '<p>All nodes have been annotated!</p>';
+            $('progress').innerHTML = '';
+          }
+        }
+
+
+    function downloadAnnotations() {
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(Object.values(annotations), null, 2));
+      const dl = document.createElement('a');
+      dl.setAttribute('href', dataStr);
+      dl.setAttribute('download', 'annotations.json');
+      dl.click();
+    }
+
+    function resetNode() {
+      const node = nodes[currentIndex];
+      const key = `${node.level}_${node.node_idx}`;
+      delete annotations[key];
+      // Re-render the current node’s form
+      if (node.level === 0 && node.node_idx === 0) {
+        renderFamiliarityForm();
+      } else {
+        renderPrior(node);
+      }
+      updateProgressBar();
+
+    }
+
+    function toggleRightPane() {
+      const pane = $('right-pane');
+      pane.classList.toggle('hidden');
+    if (!pane.classList.contains('hidden')) renderRightPaneRoot();
+    }
+
+    function renderRightPaneRoot() {
+      const node = nodes.find(n => n.level === 0 && n.node_idx === 0) || {};
+      $('right-pane').innerHTML = `
+      <h2>Metadata</h2>
+      <pre>${node.query || '—'}</pre>
+      `;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      $('json-upload').addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = evt => {
+          const rawNodes = JSON.parse(evt.target.result);
+
+          // Remove the level 0 node
+          const filtered = rawNodes.filter(n => !(n.level === 0 && n.node_idx === 0));
+
+          // Decrement level for all remaining nodes
+          nodes = filtered.map(n => ({ ...n, level: n.level - 1 }));
+
+          $('controls').classList.remove('hidden');
+          renderRightPaneRoot();
+          currentIndex = 0;
+          renderFamiliarityForm();
+          updateProgressBar();
+        };
+
+        reader.readAsText(file);
+      });
+
+      $('next-node').addEventListener('click', showNext);
+      $('reset-node').addEventListener('click', resetNode);
+      $('download-annotations').addEventListener('click', downloadAnnotations);
+      // $('view-root').addEventListener('click', toggleRightPane);
+    });
+
+  </script>
+</body>
+</html>
